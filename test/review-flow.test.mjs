@@ -85,6 +85,26 @@ test('带证据的结论可发，重复提交被压制且只记一次', async ()
   } finally { process.chdir(prev) }
 })
 
+test('重复发现应合并取最严，而不是先到先得', async () => {
+  const dir = makeRepo()
+  const prev = process.cwd()
+  process.chdir(dir)
+  try {
+    const call = tools({ stateDir: '.dsh-review' })
+    const plan = await call('review_diff', {})
+    await call('review_report', { head: plan.head, findings: [
+      { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'important', message: 'A 镜头', anchor: 'const added = doThing()', evidence: 'e1' },
+    ] })
+    const second = await call('review_report', { head: plan.head, findings: [
+      { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'blocker', message: 'B 镜头', anchor: 'const added = doThing()', evidence: 'e2' },
+    ] })
+    assert.equal(second.postable.length, 0)
+    assert.equal(second.suppressed, 1)
+    const status = await call('review_status', { head: plan.head })
+    assert.equal(status.posted, 1)
+  } finally { process.chdir(prev) }
+})
+
 test('旧代码里的同样一行会被标成 pre-existing', async () => {
   const dir = makeRepo()
   const prev = process.cwd()

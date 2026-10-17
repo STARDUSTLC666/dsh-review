@@ -16,6 +16,7 @@ export interface LedgerFinding {
   file: string
   line: number
   kind: string
+  lens?: string
   severity: 'blocker' | 'important' | 'nit' | 'pre-existing'
   message: string
   evidence: string
