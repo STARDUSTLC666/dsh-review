@@ -51,5 +51,14 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "^5.9.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/STARDUSTLC666/dsh-review.git"
+  },
+  "homepage": "https://github.com/STARDUSTLC666/dsh-review#readme",
+  "bugs": {
+    "url": "https://github.com/STARDUSTLC666/dsh-review/issues"
+  },
+  "author": "STARDUSTLC666"
 }
