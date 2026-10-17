@@ -6,7 +6,7 @@ test('三档模式的镜头与预算递增', () => {
   const quick = planForMode('quick')
   const standard = planForMode('standard')
   const deep = planForMode('deep')
-  assert.equal(quick.finders.length, 1)
+  assert.equal(quick.finders.length, 2)
   assert.equal(standard.finders.length, 4)
   assert.equal(deep.finders.length, 4)
   assert.equal(quick.verifiersPerFinding, 1)

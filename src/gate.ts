@@ -1,161 +1,100 @@
-/**
- * 把关层：所有结论（无论来自 review_report 还是 review_run）都必须过这一关。
- *
- * 顺序：风格类丢弃 → 指纹去重（合并取最严）→ 增量过滤 → pre-existing 标记 →
- * 严重度下限 → 证据门槛 → nit 上限 → 单轮上限。
- *
- * @module dsh-review/gate
- */
-
 import { severityRank, type ReviewConfig } from './config.js'
 import { fingerprintOf } from './fingerprint.js'
-import { isPreexisting } from './preexisting.js'
 import type { HeadRecord, Ledger } from './ledger.js'
-import type { Mode } from './modes.js'
-import type { ReviewRules } from './rules.js'
-
+import { sourceMatches, type ReviewTarget } from './target.js'
 export const DROP_KINDS = ['style', 'formatting', 'format', 'diagnostics', 'diagnostic', 'cleanup', 'nitpick', 'naming', 'whitespace']
-
+export interface Witness { file: string; line: number; anchor: string; side?: 'before' | 'after' }
 export interface CandidateFinding {
-  file: string
-  line: number
-  kind: string
-  severity: 'blocker' | 'important' | 'nit'
-  message: string
-  anchor: string
-  evidence: string
-  lens?: string
-  classOfBug?: string
+ id?: string; file: string; line: number; kind: string; severity: 'blocker' | 'important' | 'nit';
+ message: string; anchor: string; evidence: string; lens?: string; classOfBug?: string;
+ side?: 'before' | 'after'; introducedBy?: Witness; carried?: boolean;
 }
-
+export interface Vote { candidateId: string; decision: 'confirm' | 'reject' | 'pre-existing' | 'unverifiable'; reason: string; witnesses: Witness[]; taskId: string }
 export interface GatedFinding {
-  fingerprint: string
-  file: string
-  line: number
-  kind: string
-  lens: string
-  severity: 'blocker' | 'important' | 'nit' | 'pre-existing'
-  message: string
-  evidence: string
-  preexisting: boolean
-  classOfBug?: string
+ fingerprint: string; file: string; line: number; kind: string; lens: string;
+ severity: 'blocker' | 'important' | 'nit' | 'pre-existing'; message: string; evidence: string;
+ preexisting: boolean; anchor: string; targetId: string; verification: Vote[]; classOfBug?: string;
 }
-
-export interface GateResult {
-  postable: GatedFinding[]
-  suppressed: number
-  suppressedFingerprints: string[]
-  dropped: number
-  droppedDetail: Array<{ file: string; reason: string }>
-  unverified: number
-  declined: Array<{ lens: string; file: string; line: number; why: string }>
+export interface GateResult { postable: GatedFinding[]; suppressed: number; suppressedFingerprints: string[]; dropped: number; droppedDetail: Array<{ file: string; reason: string }>; unverified: number; declined: unknown[]; rejected: Array<{ id: string; reason: string }> }
+export function candidateId(f: CandidateFinding, target: ReviewTarget): string {
+ const file = target.files.find(item => (f.side === 'before' ? item.oldPath : item.path) === f.file)
+ const lines = ((f.side === 'before' ? file?.before : file?.after) ?? '').split(/\r?\n/)
+ const occurrence = lines.slice(0, f.line).filter(line => line === f.anchor).length
+ return fingerprintOf({ kind: f.kind + ':' + (f.classOfBug ?? '') + ':' + occurrence, file: f.file, anchor: f.anchor })
 }
-
-function severityOf(value: string): 'blocker' | 'important' | 'nit' {
-  return value === 'blocker' || value === 'nit' ? value : 'important'
+export function parseCandidate(raw: unknown, lens: string, target: ReviewTarget): CandidateFinding | null {
+ const item = raw as Partial<CandidateFinding>
+ if (!item || typeof item !== 'object' || typeof item.kind !== 'string') throw new Error('Invalid finding shape')
+ if (DROP_KINDS.includes(item.kind.toLowerCase())) return null
+ if (!['correctness','state','breaking','security'].includes(item.kind)) throw new Error('Unknown finding kind')
+ for (const key of ['file','anchor','message'] as const) if (typeof item[key] !== 'string' || !item[key]!.trim()) throw new Error('Finding requires ' + key)
+ if (!['blocker','important','nit'].includes(item.severity!)) throw new Error('Invalid finding severity')
+ if (item.side !== undefined && !['before','after'].includes(item.side)) throw new Error('Invalid finding side')
+ const side = item.side === 'before' ? 'before' : 'after'
+ if (!sourceMatches(target, item.file!, item.line!, item.anchor!, side)) throw new Error('Finding does not quote exact snapshot source')
+ const introducedBy = item.introducedBy ?? { file: item.file!, line: item.line!, anchor: item.anchor!, side }
+ if (introducedBy.side !== undefined && !['before','after'].includes(introducedBy.side)) throw new Error('Invalid introducing side')
+ if (!sourceMatches(target, introducedBy.file, introducedBy.line, introducedBy.anchor, introducedBy.side ?? 'after')) throw new Error('Invalid introducing evidence')
+ const changed = target.files.find(file => (introducedBy.side === 'before' ? file.oldPath : file.path) === introducedBy.file)
+ if (!(introducedBy.side === 'before' ? changed?.removedLines : changed?.addedLines)?.includes(introducedBy.line)) throw new Error('Finding is not linked to a changed introducing line')
+ const finding: CandidateFinding = { file: item.file!, line: item.line!, kind: item.kind, severity: item.severity!, message: item.message!, anchor: item.anchor!, evidence: typeof item.evidence === 'string' ? item.evidence : '', lens, side, introducedBy,
+  ...(typeof item.classOfBug === 'string' && item.classOfBug.trim() ? { classOfBug: item.classOfBug.trim() } : {}) }
+ finding.id = candidateId(finding, target)
+ return finding
 }
-
-export interface GateOptions {
-  root: string
-  head: string
-  base: string
-  mode: Mode
-  findings: CandidateFinding[]
-  declined?: Array<{ lens?: string; file: string; line: number; why: string }>
-  config: ReviewConfig
-  rules: ReviewRules
-  record: HeadRecord
-  ledger: Ledger
+export function parseVote(raw: unknown, taskId: string, expected: string, target: ReviewTarget): Vote {
+ const item = raw as Partial<Vote>
+ if (!item || item.candidateId !== expected || !['confirm','reject','pre-existing','unverifiable'].includes(item.decision!) || typeof item.reason !== 'string' || item.reason.trim().length < 12 || !Array.isArray(item.witnesses)) throw new Error('Invalid independent verification')
+ for (const witness of item.witnesses) if (!witness || (witness.side !== undefined && !['before','after'].includes(witness.side)) || !sourceMatches(target, witness.file, witness.line, witness.anchor, witness.side ?? 'after')) throw new Error('Verifier cited source outside the immutable snapshot')
+ if (item.decision !== 'unverifiable' && item.witnesses.length === 0) throw new Error('Verifier supplied no checkable source witness')
+ if (item.decision === 'pre-existing' && !item.witnesses.some(witness => witness.side === 'before')) throw new Error('Pre-existing verdict requires base evidence')
+ return { candidateId: expected, decision: item.decision!, reason: item.reason.trim(), witnesses: item.witnesses, taskId }
 }
-
-export async function gateFindings(options: GateOptions): Promise<GateResult> {
-  const { root, head, base, config, rules, record, ledger } = options
-  const floor = rules.severityFloor ?? config.severityFloor
-  const maxNits = rules.maxNits ?? config.maxNits
-  const diffOnly = record.round > config.diffOnlyAfterRound
-  const postable: GatedFinding[] = []
-  const suppressedFingerprints: string[] = []
-  const droppedDetail: Array<{ file: string; reason: string }> = []
-  let suppressed = 0
-  let dropped = 0
-  let unverified = 0
-  let nitCount = 0
-
-  for (const finding of options.findings) {
-    if (DROP_KINDS.includes(finding.kind.toLowerCase())) {
-      dropped++
-      droppedDetail.push({ file: finding.file, reason: '风格/诊断类不发：' + finding.kind })
-      continue
-    }
-    const fingerprint = fingerprintOf({ kind: finding.kind, file: finding.file, anchor: finding.anchor })
-    const previous = record.posted[fingerprint]
-    if (previous !== undefined) {
-      // 同一处问题被多个镜头重复发现：合并取最严，证据取并集，而不是先到先得。
-      const merged = severityOf(finding.severity)
-      if (severityRank(merged) > severityRank(previous.severity)) {
-        ledger.event('severity-merge', { head, fingerprint, from: previous.severity, to: merged })
-        previous.severity = merged
-      }
-      if (finding.evidence !== '' && !previous.evidence.includes(finding.evidence)) {
-        previous.evidence = previous.evidence === '' ? finding.evidence : previous.evidence + ' | ' + finding.evidence
-      }
-      const visible = postable.find(item => item.fingerprint === fingerprint)
-      if (visible !== undefined) {
-        if (severityRank(merged) > severityRank(visible.severity)) visible.severity = merged
-        if (finding.evidence !== '' && !visible.evidence.includes(finding.evidence)) {
-          visible.evidence = visible.evidence === '' ? finding.evidence : visible.evidence + ' | ' + finding.evidence
-        }
-      }
-      previous.repeats = (previous.repeats ?? 0) + 1
-      record.suppressed += 1
-      suppressed++
-      suppressedFingerprints.push(fingerprint)
-      continue
-    }
-    if (diffOnly && record.reviewedFiles.length > 0 && !record.reviewedFiles.includes(finding.file)) {
-      dropped++
-      droppedDetail.push({ file: finding.file, reason: '第 ' + record.round + ' 轮起只看增量，该文件本轮未变' })
-      continue
-    }
-    const preexisting = await isPreexisting(root, base, finding.file, finding.anchor)
-    if (severityRank(finding.severity) < severityRank(floor) && !preexisting) {
-      dropped++
-      droppedDetail.push({ file: finding.file, reason: '低于严重度下限 ' + floor })
-      continue
-    }
-    if (finding.evidence === '' && config.evidenceRequired) {
-      unverified++
-      record.unverified += 1
-      ledger.event('unverified', { head, file: finding.file, fingerprint, message: finding.message })
-      continue
-    }
-    if (finding.severity === 'nit' && nitCount >= maxNits) {
-      dropped++
-      droppedDetail.push({ file: finding.file, reason: 'nit 已达上限 ' + maxNits })
-      continue
-    }
-    if (postable.length >= config.maxFindings) {
-      dropped++
-      droppedDetail.push({ file: finding.file, reason: '单轮上限 ' + config.maxFindings })
-      continue
-    }
-    if (finding.severity === 'nit') nitCount++
-    const entry: GatedFinding = {
-      fingerprint,
-      file: finding.file,
-      line: finding.line,
-      kind: finding.kind,
-      lens: finding.lens ?? '',
-      severity: preexisting ? 'pre-existing' : finding.severity,
-      message: finding.message,
-      evidence: finding.evidence,
-      preexisting,
-      classOfBug: finding.classOfBug,
-    }
-    postable.push(entry)
-    ledger.remember(record, { ...entry, at: new Date().toISOString(), repeats: 0 })
+export function voteDecision(votes: Vote[], required: number): Vote['decision'] {
+ if (votes.length !== required) return 'unverifiable'
+ const majority = Math.floor(required / 2) + 1
+ for (const decision of ['confirm','reject','pre-existing'] as const) if (votes.filter(vote => vote.decision === decision).length >= majority) return decision
+ return 'unverifiable'
+}
+export function gateFindings(options: {
+ root: string; head: string; base: string; mode: string; findings: CandidateFinding[]; config: ReviewConfig;
+ rules: ReviewTarget['rules']; record: HeadRecord; ledger: Ledger; target: ReviewTarget;
+ votes: Record<string, Vote[]>; requiredVotes: number;
+}): GateResult {
+ const { record, target, config, rules } = options
+ const result: GateResult = { postable: [], suppressed: 0, suppressedFingerprints: [], dropped: 0, droppedDetail: [], unverified: 0, declined: [], rejected: [] }
+ let nits = 0
+ const unique = new Map<string, CandidateFinding>()
+ for (const finding of options.findings) {
+  if (DROP_KINDS.includes(finding.kind.toLowerCase())) { result.dropped++; continue }
+  const id = finding.id ?? candidateId(finding, target), prior = unique.get(id)
+  if (!prior || severityRank(finding.severity) > severityRank(prior.severity)) unique.set(id, { ...finding, id })
+ }
+ for (const finding of [...unique.values()].sort((a,b) => severityRank(b.severity) - severityRank(a.severity))) {
+  const id = finding.id!, votes = options.votes[id] ?? [], decision = voteDecision(votes, options.requiredVotes)
+  if (decision === 'unverifiable') { result.unverified++; continue }
+  if (decision === 'reject') {
+   result.rejected.push({ id, reason: votes.map(v => v.reason).join('\n') })
+   const prior = record.posted[id]
+   if (prior && !prior.disposition) { prior.disposition = prior.targetId === target.id ? 'wrong' : 'fixed'; prior.note = 'Independent re-verification rejects the former finding on target ' + target.id; prior.verification = votes; prior.targetId = target.id }
+   continue
   }
-
-  record.dropped += dropped
-  return { postable, suppressed, suppressedFingerprints, dropped, droppedDetail, unverified, declined: (options.declined ?? []).map(d => ({ lens: d.lens ?? '', file: d.file, line: d.line, why: d.why })) }
+  if (decision !== 'pre-existing' && severityRank(finding.severity) < severityRank(rules.severityFloor ?? config.severityFloor)) { result.dropped++; continue }
+  if (finding.severity === 'nit' && nits++ >= (rules.maxNits ?? config.maxNits)) { result.dropped++; continue }
+  if (result.postable.length >= config.maxFindings) { result.unverified++; continue }
+  const entry: GatedFinding = { fingerprint: id, file: finding.file, line: finding.line, kind: finding.kind, lens: finding.lens ?? 'unknown', severity: decision === 'pre-existing' ? 'pre-existing' : finding.severity,
+   message: finding.message, evidence: votes.map(v => v.reason).join('\n'), preexisting: decision === 'pre-existing', anchor: finding.anchor, targetId: target.id, verification: votes,
+   ...(finding.classOfBug ? { classOfBug: finding.classOfBug } : {}) }
+  const prior = record.posted[id]
+  if (prior && prior.targetId === target.id) {
+   prior.repeats++; result.suppressed++; result.suppressedFingerprints.push(id); prior.verification = votes; prior.evidence = entry.evidence
+   if (severityRank(entry.severity) > severityRank(prior.severity)) { prior.severity = entry.severity; prior.message = entry.message }
+   continue
+  }
+  if (prior && !prior.disposition) { result.suppressed++; result.suppressedFingerprints.push(id) }
+  else result.postable.push(entry)
+  options.ledger.remember(record, { ...entry, at: new Date().toISOString(), repeats: prior?.repeats ?? 0 })
+ }
+ record.unverified = result.unverified; record.dropped += result.dropped; record.reviewedFiles = target.files.map(file => file.path)
+ return result
 }

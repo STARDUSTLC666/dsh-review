@@ -1,160 +1,100 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-import { execFileSync } from 'node:child_process'
-import { buildReviewTools } from '../lib/tools.js'
-import { resolveConfig } from '../lib/config.js'
-
-function makeRepo() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'dsh-review-flow-'))
-  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' })
-  git('init', '-q')
-  git('config', 'user.email', 't@example.com')
-  git('config', 'user.name', 'tester')
-  mkdirSync(path.join(dir, 'src'), { recursive: true })
-  writeFileSync(path.join(dir, 'src/a.js'), ['const x = 1', 'const keep = 42', 'return x'].join('\n'))
-  git('add', '-A')
-  git('commit', '-q', '-m', 'base')
-  writeFileSync(path.join(dir, 'src/a.js'), ['const x = 1', 'const keep = 42', 'const added = doThing()', 'return x'].join('\n'))
-  return dir
-}
-
-function tools(config) {
-  const map = new Map(buildReviewTools(resolveConfig(config)).map(t => [t.name, t]))
-  return (name, args) => map.get(name).execute(args)
-}
-
-test('review_diff 给出 head、文件与模式', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review' })
-    const plan = await call('review_diff', {})
-    assert.match(plan.head, /^[0-9a-f]{40}$/)
-    assert.equal(plan.files.length, 1)
-    assert.equal(plan.files[0].path, 'src/a.js')
-    assert.ok(['quick', 'standard', 'deep'].includes(plan.mode))
-    assert.ok(plan.plan.finders.length >= 1)
-  } finally { process.chdir(prev) }
+import { repo, tools, scripted, candidate, ids } from './helpers.mjs'
+test('plan captures target, files and independent review stages without recording a pass', async () => {
+ const r = repo(), { call } = tools(r.root), plan = await call('review_diff')
+ assert.match(plan.head, /^[a-f0-9]{40}$/); assert.match(plan.targetId, /^[a-f0-9]{64}$/)
+ assert.deepEqual(plan.files.map(f => f.path), ['src/a.js']); assert.equal(plan.mode, 'standard')
+ assert.equal((await call('review_gate')).ok, false)
 })
-
-test('风格类直接丢弃，没有证据的进 unverified 而不是发出去', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review', evidenceRequired: true })
-    const plan = await call('review_diff', {})
-    const result = await call('review_report', {
-      head: plan.head,
-      findings: [
-        { file: 'src/a.js', line: 3, kind: 'style', severity: 'important', message: '这行太长', anchor: 'const added = doThing()' },
-        { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'important', message: 'doThing 可能返回 null', anchor: 'const added = doThing()' },
-      ],
-    })
-    assert.equal(result.postable.length, 0)
-    assert.equal(result.dropped, 1)
-    assert.equal(result.unverified, 1)
-  } finally { process.chdir(prev) }
+test('a real pipeline dispatches finders and separate verifier votes before accepting', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ assert.equal(run.status, 'complete'); assert.equal(run.postable.length, 1)
+ assert.equal(d.seen.filter(t => t.role === 'risk').length, 2)
+ assert.equal(d.seen.filter(t => t.role === 'verify').length, 3)
+ assert.equal(run.postable[0].verification.length, 3)
+ assert.equal((await call('review_gate', { runId: run.runId })).ok, false)
 })
-
-test('带证据的结论可发，重复提交被压制且只记一次', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review', evidenceRequired: true })
-    const plan = await call('review_diff', {})
-    const check = await call('review_check', { command: 'echo ok' })
-    assert.equal(check.ok, true)
-    const first = await call('review_report', {
-      head: plan.head,
-      findings: [{ file: 'src/a.js', line: 3, kind: 'correctness', severity: 'important', message: 'doThing 可能返回 null', anchor: 'const added = doThing()', evidence: 'review_check: echo ok' }],
-    })
-    assert.equal(first.postable.length, 1)
-    assert.match(first.postable[0].fingerprint, /^[0-9a-f]{16}$/)
-    const second = await call('review_report', {
-      head: plan.head,
-      findings: [{ file: 'src/a.js', line: 3, kind: 'correctness', severity: 'important', message: 'doThing 可能返回 null（措辞变了）', anchor: 'const added = doThing()', evidence: 'review_check: echo ok' }],
-    })
-    assert.equal(second.postable.length, 0)
-    assert.equal(second.suppressed, 1)
-  } finally { process.chdir(prev) }
+test('clean native review passes only the AI layer and discloses human requirements', async () => {
+ const r = repo(), d = scripted(), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run'), gate = await call('review_gate', { runId: run.runId })
+ assert.equal(run.status, 'complete'); assert.equal(gate.ok, true); assert.equal(gate.requiredHumanApprovals, 1)
+ assert.match(gate.boundary, /separate/); assert.equal(run.calls, 6)
 })
-
-test('重复发现应合并取最严，而不是先到先得', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review' })
-    const plan = await call('review_diff', {})
-    await call('review_report', { head: plan.head, findings: [
-      { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'important', message: 'A 镜头', anchor: 'const added = doThing()', evidence: 'e1' },
-    ] })
-    const second = await call('review_report', { head: plan.head, findings: [
-      { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'blocker', message: 'B 镜头', anchor: 'const added = doThing()', evidence: 'e2' },
-    ] })
-    assert.equal(second.postable.length, 0)
-    assert.equal(second.suppressed, 1)
-    const status = await call('review_status', { head: plan.head })
-    assert.equal(status.posted, 1)
-  } finally { process.chdir(prev) }
+test('style is dropped; invented evidence cannot replace missing verification', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [{ ...candidate, kind: 'style' }, candidate] : [], decision: 'unverifiable' }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ assert.equal(run.status, 'incomplete'); assert.equal(run.postable.length, 0); assert.equal(run.unverified, 1)
+ assert.equal((await call('review_status')).dropped, 1)
+ assert.equal((await call('review_gate', { runId: run.runId })).ok, false)
 })
-
-test('旧代码里的同样一行会被标成 pre-existing', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review' })
-    const plan = await call('review_diff', {})
-    const result = await call('review_report', {
-      head: plan.head,
-      findings: [{ file: 'src/a.js', line: 2, kind: 'correctness', severity: 'important', message: 'keep 未使用', anchor: 'const keep = 42', evidence: 'review_check: echo ok' }],
-    })
-    assert.equal(result.postable.length, 1)
-    assert.equal(result.postable[0].preexisting, true)
-    assert.equal(result.postable[0].severity, 'pre-existing')
-  } finally { process.chdir(prev) }
+test('same defect across finders is merged at the highest severity', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : t.id === 'find-security' ? [{ ...candidate, severity: 'blocker', message: 'Same defect, more severe' }] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ assert.equal(run.postable.length, 1); assert.equal(run.postable[0].severity, 'blocker')
 })
-
-test('nit 上限与处置驱动的噪音率', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review', severityFloor: 'nit', maxNits: 1 })
-    const plan = await call('review_diff', {})
-    const result = await call('review_report', {
-      head: plan.head,
-      findings: [
-        { file: 'src/a.js', line: 3, kind: 'correctness', severity: 'nit', message: 'n1', anchor: 'const added = doThing()', evidence: 'e' },
-        { file: 'src/a.js', line: 4, kind: 'correctness', severity: 'nit', message: 'n2', anchor: 'return x', evidence: 'e' },
-      ],
-    })
-    assert.equal(result.postable.length, 1)
-    assert.equal(result.dropped, 1)
-    const fp = result.postable[0].fingerprint
-    await call('review_respond', { head: plan.head, fingerprint: fp, disposition: 'wrong', note: '不是问题' })
-    const status = await call('review_status', { head: plan.head })
-    assert.equal(status.byDisposition.wrong, 1)
-    assert.equal(status.noiseRate, 1)
-  } finally { process.chdir(prev) }
+test('pre-existing judgement needs independent base evidence, not a reused source line', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [{ ...candidate, line: 1, anchor: 'const keep = 42', introducedBy: { file: candidate.file, line: 2, anchor: candidate.anchor } }] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ assert.equal(run.postable[0].preexisting, false)
 })
-
-test('第三轮后会提示轮次上限', async () => {
-  const dir = makeRepo()
-  const prev = process.cwd()
-  process.chdir(dir)
-  try {
-    const call = tools({ stateDir: '.dsh-review', roundCap: 2 })
-    const plan = await call('review_diff', {})
-    await call('review_report', { head: plan.head, findings: [] })
-    const second = await call('review_report', { head: plan.head, findings: [] })
-    assert.ok(second.advice.includes('上限'))
-  } finally { process.chdir(prev) }
+test('deep mode dispatches majority verification and a final arbiter', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run', { mode: 'deep' })
+ assert.equal(run.status, 'complete'); assert.equal(d.seen.filter(t => t.role === 'verify').length, 3)
+ assert.equal(d.seen.filter(t => t.role === 'arbiter').length, 1); assert.equal(run.calls, 10)
+})
+test('new snapshots invalidate prior review and manually claiming fixed cannot clear it', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ await assert.rejects(call('review_respond', { ...ids(run), fingerprint: run.postable[0].fingerprint, disposition: 'fixed', note: 'A narrative claiming the defect is already fixed here.' }), /re-reviewed/)
+ r.write('src/a.js', 'const keep = 42\nexport const value = safe()\n')
+ await assert.rejects(call('review_gate', { runId: run.runId }), /target changed/i)
+})
+test('reasoned exceptions are audited but never human approvals', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const run = await call('review_run')
+ await assert.rejects(call('review_respond', { ...ids(run), fingerprint: run.postable[0].fingerprint, disposition: 'wrong', note: 'no' }), /specific reason/)
+ const reply = await call('review_respond', { ...ids(run), fingerprint: run.postable[0].fingerprint, disposition: 'intentional', note: 'The API contract explicitly permits throwing on this invalid input.' })
+ assert.equal(reply.humanApprovalGranted, false); assert.equal((await call('review_status')).noiseRate, 1)
+ assert.equal((await call('review_gate', { runId: run.runId })).requiredHumanApprovals, 1)
+})
+test('completed rounds are capped; no silent infinite review loop', async () => {
+ const r = repo(), d = scripted(), { call } = tools(r.root, { roundCap: 2 }, { dispatcher: () => d })
+ await call('review_run'); await call('review_run')
+ await assert.rejects(call('review_run'), /round cap/i)
+})
+test('re-review suppresses repeated posted findings but re-verifies unresolved ones', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ const first = await call('review_run'), second = await call('review_run')
+ assert.equal(second.status, 'complete'); assert.equal(second.postable.length, 0)
+ assert.equal((await call('review_status')).posted, 1)
+ assert.equal(d.seen.filter(t => t.role === 'verify').length, 6)
+ assert.equal((await call('review_gate', { runId: first.runId })).ok, false)
+})
+test('fixes clear only after independent source re-verification', async () => {
+ const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })
+ await call('review_run')
+ r.write('src/a.js', 'const keep = 42\nexport const value = safe()\n')
+ const fixed = scripted({ decision: 'reject' }), next = tools(r.root, {}, { dispatcher: () => fixed })
+ const run = await next.call('review_run')
+ assert.equal(run.status, 'complete'); assert.equal((await next.call('review_status')).byDisposition.fixed, 1)
+ assert.equal((await next.call('review_gate', { runId: run.runId })).ok, true)
+ assert.equal((await next.call('review_learn')).classes[0].classOfBug, candidate.classOfBug)
+})
+test('unresolved findings retain their defect class and lens on a changed target', async () => {
+ const r=repo(),first=tools(r.root,{}, {dispatcher:()=>scripted({find:t=>t.id==='find-correctness'?[candidate]:[]})})
+ await first.call('review_run');r.write('src/b.js','export const additional = 1\n')
+ const next=tools(r.root,{}, {dispatcher:()=>scripted()}),run=await next.call('review_run')
+ assert.equal(run.status,'complete');assert.equal(run.postable.length,0)
+ const {Ledger}=await import('../lib/ledger.js'),ledger=new Ledger(r.root,'.dsh-review').snapshot(),finding=Object.values(Object.values(ledger.heads)[0].posted)[0]
+ assert.equal(finding.classOfBug,candidate.classOfBug);assert.equal(finding.lens,'find-correctness')
+})
+test('repeated verified findings escalate severity without posting a duplicate', async () => {
+ const r=repo(),first=tools(r.root,{}, {dispatcher:()=>scripted({find:t=>t.id==='find-correctness'?[candidate]:[]})})
+ await first.call('review_run')
+ const next=tools(r.root,{}, {dispatcher:()=>scripted({find:t=>t.id==='find-correctness'?[{...candidate,severity:'blocker'}]:[]})}),run=await next.call('review_run')
+ assert.equal(run.postable.length,0)
+ const gate=await next.call('review_gate',{runId:run.runId});assert.equal(gate.open[0].severity,'blocker')
 })

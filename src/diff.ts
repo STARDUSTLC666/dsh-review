@@ -36,9 +36,26 @@ export interface ParsedDiff {
   files: FileDiff[]
   added: number
   removed: number
+  complete: boolean
 }
 
 const HEADER = /^diff --git a\/(.+?) b\/(.+)$/
+
+export function gitPath(value: string): string {
+  if (!value.startsWith('"')) return value
+  if (!value.endsWith('"')) throw new Error('Incomplete quoted Git path')
+  const bytes: number[] = []
+  for (let i = 1; i < value.length - 1; i++) {
+    if (value[i] !== '\\') { bytes.push(...Buffer.from(value[i])); continue }
+    const octal = /^[0-7]{1,3}/.exec(value.slice(i + 1))
+    if (octal) { bytes.push(parseInt(octal[0], 8)); i += octal[0].length; continue }
+    const ch = value[++i]
+    const escaped: Record<string, string> = { t: '\t', n: '\n', r: '\r', b: '\b', f: '\f', v: '\v', a: '\x07', '\\': '\\', '"': '"' }
+    if (!(ch in escaped)) throw new Error('Invalid Git path escape')
+    bytes.push(...Buffer.from(escaped[ch]))
+  }
+  return Buffer.from(bytes).toString('utf8')
+}
 
 export function parseDiff(raw: string): ParsedDiff {
   const files: FileDiff[] = []
@@ -46,6 +63,7 @@ export function parseDiff(raw: string): ParsedDiff {
   let hunk: Hunk | null = null
   let oldNo = 0
   let newNo = 0
+  let complete = true
 
   const push = () => {
     if (current !== null) files.push(current)
@@ -54,7 +72,10 @@ export function parseDiff(raw: string): ParsedDiff {
   }
 
   for (const line of raw.split(/\r?\n/)) {
+    const quoted = /^diff --git ("(?:[^"\\]|\\.)*") ("(?:[^"\\]|\\.)*")$/.exec(line)
     const header = HEADER.exec(line)
+      ?? (quoted ? [line, gitPath(quoted[1]).replace(/^a\//, ''), gitPath(quoted[2]).replace(/^b\//, '')] : null)
+    if (line.startsWith('diff --git ') && header === null) complete = false
     if (header !== null) {
       push()
       current = { path: header[2], oldPath: header[1], status: 'modified', binary: false, hunks: [], added: 0, removed: 0 }
@@ -66,14 +87,14 @@ export function parseDiff(raw: string): ParsedDiff {
     if (line.startsWith('rename from')) { current.status = 'renamed'; current.oldPath = line.slice(12).trim(); continue }
     if (line.startsWith('copy from')) { current.status = 'copied'; current.oldPath = line.slice(10).trim(); continue }
     if (line.startsWith('Binary files ') || line === 'GIT binary patch') { current.binary = true; continue }
-    if (line.startsWith('--- ')) {
+    if (hunk === null && line.startsWith('--- ')) {
       const target = line.slice(4).trim()
-      if (current.status !== 'added' && target !== '/dev/null') current.oldPath = target.replace(/^a\//, '')
+      if (current.status !== 'added' && target !== '/dev/null') current.oldPath = gitPath(target).replace(/^a\//, '')
       continue
     }
-    if (line.startsWith('+++ ')) {
+    if (hunk === null && line.startsWith('+++ ')) {
       const target = line.slice(4).trim()
-      if (target !== '/dev/null') current.path = target.replace(/^b\//, '')
+      if (target !== '/dev/null') current.path = gitPath(target).replace(/^b\//, '')
       continue
     }
     const hunkHeader = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line)
@@ -105,7 +126,7 @@ export function parseDiff(raw: string): ParsedDiff {
   push()
   const added = files.reduce((n, f) => n + f.added, 0)
   const removed = files.reduce((n, f) => n + f.removed, 0)
-  return { files, added, removed }
+  return { files, added, removed, complete }
 }
 
 /** 取某个新行号附近的上下文（用于给 finding 定位）。 */

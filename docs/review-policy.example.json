@@ -1,0 +1,9 @@
+{
+  "trustedAuthors": [],
+  "requiredChecks": [
+    { "name": "build-and-test", "appSlug": "github-actions" },
+    { "name": "security-review", "appSlug": "github-actions" }
+  ],
+  "sensitivePaths": ["src/auth/**", "src/billing/**", "src/updater/**"],
+  "alwaysTwoPaths": [".github/workflows/**", "install/**"]
+}

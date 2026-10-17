@@ -1,36 +1,17 @@
-/**
- * 证据执行：一条 finding 要么给出能跑的检查，要么给出能反驳它的理由。
- * 这里只负责"真的跑一遍"，不负责判断语义。
- *
- * @module dsh-review/check
- */
-
-import { excerpt, run } from './exec.js'
-
-export interface CheckResult {
-  ok: boolean
-  command: string
-  cwd: string
-  exitCode: number | null
-  timedOut: boolean
-  durationMs: number
-  output: string
-}
-
-export async function runCheck(root: string, command: string, timeoutMs: number, cwd?: string): Promise<CheckResult> {
-  const workdir = cwd === undefined ? root : cwd
-  const started = Date.now()
-  const isWindows = process.platform === 'win32'
-  const shell = isWindows ? 'cmd.exe' : '/bin/sh'
-  const args = isWindows ? ['/d', '/s', '/c', command] : ['-c', command]
-  const result = await run(shell, args, { cwd: workdir, timeoutMs, maxOutputBytes: 512 * 1024 })
-  return {
-    ok: result.ok,
-    command,
-    cwd: workdir,
-    exitCode: result.code,
-    timedOut: result.timedOut,
-    durationMs: Date.now() - started,
-    output: excerpt(result.stdout + (result.stderr === '' ? '' : '\n' + result.stderr), 40, 4000),
-  }
+import path from 'node:path'
+import { realpathSync } from 'node:fs'
+export interface CheckResult { ok: boolean; command: string; cwd: string; exitCode: number | null; timedOut: boolean; aborted: boolean; truncated: boolean; durationMs: number; output: string }
+export interface ToolExecutionContext { agent?: any; signal?: AbortSignal }
+export type CommandRunner = (input: { command: string; cwd: string; timeoutMs: number; signal: AbortSignal; exec: ToolExecutionContext }) => Promise<Omit<CheckResult, 'command' | 'cwd' | 'durationMs'>>
+export async function runCheck(root: string, command: string, timeoutMs: number, cwd?: string, runner?: CommandRunner, exec: ToolExecutionContext = {}): Promise<CheckResult> {
+ if (!runner || !exec.agent) throw new Error('review_check requires the DSH controlled Bash runner and a live calling agent; direct process execution is disabled')
+ if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 600000) throw new Error('timeoutMs must be an integer between 1000 and 600000')
+ const workdir = realpathSync(cwd ?? root), relative = path.relative(realpathSync(root), workdir)
+ if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Evidence command cwd must stay inside the workspace')
+ const started = Date.now(), deadline = AbortSignal.timeout(timeoutMs)
+ const signal = exec.signal ? AbortSignal.any([exec.signal, deadline]) : deadline
+ signal.throwIfAborted()
+ const result = await runner({ command, cwd: workdir, timeoutMs, signal, exec })
+ signal.throwIfAborted()
+ return { ...result, command, cwd: workdir, durationMs: Date.now() - started }
 }

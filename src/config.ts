@@ -7,11 +7,11 @@
 export type Severity = 'blocker' | 'important' | 'nit' | 'pre-existing'
 
 export interface ReviewConfig {
-  /** 账本目录（相对仓库根）。 */
+  /** @profile 按仓库隔离，或显式指定仓库内子目录。 */
   stateDir: string
-  /** 同一个 head 最多审几轮，超过后只审增量。 */
+  /** 每个审阅系列的完成轮次上限，超过后停止。 */
   roundCap: number
-  /** 从第几轮起只看新文件（增量审阅）。 */
+  /** 超过这轮后，新问题限定到相对上轮的增量行。 */
   diffOnlyAfterRound: number
   /** 单轮最多发多少条 finding。 */
   maxFindings: number
@@ -19,16 +19,20 @@ export interface ReviewConfig {
   maxNits: number
   /** 低于该严重度的 finding 不发。 */
   severityFloor: Exclude<Severity, 'pre-existing'>
-  /** 没有可执行证据的 finding 是否降级（true=降级为 unverified，不发）。 */
+  /** 旧配置兼容项；不能关闭独立验证或以文字断言替代证据。 */
   evidenceRequired: boolean
   /** 证据命令超时。 */
   commandTimeoutMs: number
-  /** 单次 diff 读取上限，超过则只取统计。 */
+  /** 补丁与源码快照上限；超出则保持未完成。 */
   maxDiffBytes: number
+  maxCalls: number
+  runTimeoutMs: number
+  subagentProvider: string
+  maxParallel: number
 }
 
 export const DEFAULT_CONFIG: ReviewConfig = {
-  stateDir: '.dsh-review',
+  stateDir: '@profile',
   roundCap: 3,
   diffOnlyAfterRound: 2,
   maxFindings: 20,
@@ -37,6 +41,10 @@ export const DEFAULT_CONFIG: ReviewConfig = {
   evidenceRequired: true,
   commandTimeoutMs: 120000,
   maxDiffBytes: 4 * 1024 * 1024,
+  maxCalls: 80,
+  runTimeoutMs: 600000,
+  subagentProvider: 'spawn',
+  maxParallel: 3,
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { blocker: 3, important: 2, nit: 1, 'pre-existing': 0 }
@@ -66,6 +74,13 @@ export function resolveConfig(raw?: Partial<ReviewConfig> | null): ReviewConfig 
   config.maxNits = intIn(input.maxNits, config.maxNits, 0, 100, 'maxNits')
   config.commandTimeoutMs = intIn(input.commandTimeoutMs, config.commandTimeoutMs, 1000, 600000, 'commandTimeoutMs')
   config.maxDiffBytes = intIn(input.maxDiffBytes, config.maxDiffBytes, 1024, 64 * 1024 * 1024, 'maxDiffBytes')
+  config.maxCalls = intIn(input.maxCalls, config.maxCalls, 1, 1000, 'maxCalls')
+  config.maxParallel = intIn(input.maxParallel, config.maxParallel, 1, 8, 'maxParallel')
+  config.runTimeoutMs = intIn(input.runTimeoutMs, config.runTimeoutMs, 1000, 3600000, 'runTimeoutMs')
+  if (input.subagentProvider !== undefined) {
+    if (typeof input.subagentProvider !== 'string' || !/^[\w-]+$/.test(input.subagentProvider)) throw new Error('Invalid subagentProvider')
+    config.subagentProvider = input.subagentProvider
+  }
   if (input.severityFloor !== undefined) {
     const floor = String(input.severityFloor)
     if (!['blocker', 'important', 'nit'].includes(floor)) throw new Error('severityFloor 只能是 blocker | important | nit')

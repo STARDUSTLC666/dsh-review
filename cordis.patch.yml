@@ -2,14 +2,14 @@
 #
 # 示例（用户 profile 的 cordis.patch.yml）：
 #   - id: review
-#     name: 'dsh-review'
+#     name: '@stardustlc/dsh-review'
 #     config:
 #       roundCap: 3
 #       evidenceRequired: true
-#       stateDir: .dsh-review
+#       stateDir: '@profile'
 - insert:
     - id: review
-      name: 'dsh-review'
+      name: '@stardustlc/dsh-review'
       config:
         roundCap: 3
         evidenceRequired: true

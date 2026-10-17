@@ -5,6 +5,7 @@
  */
 
 export type Mode = 'quick' | 'standard' | 'deep'
+import { matchGlob } from './rules.js'
 export type RiskTier = 'low' | 'medium' | 'high'
 
 export interface Lens {
@@ -32,12 +33,12 @@ export const LENSES: Record<string, Lens> = {
 
 export function planForMode(mode: Mode): ModePlan {
   if (mode === 'quick') {
-    return { mode, finders: [LENSES.correctness], verifiersPerFinding: 1, arbiter: false, estimatedCalls: 2 }
+    return { mode, finders: [LENSES.correctness, LENSES.security], verifiersPerFinding: 1, arbiter: false, estimatedCalls: 5 }
   }
   if (mode === 'deep') {
     return { mode, finders: [LENSES.correctness, LENSES.state, LENSES.breaking, LENSES.security], verifiersPerFinding: 3, arbiter: true, estimatedCalls: 25 }
   }
-  return { mode, finders: [LENSES.correctness, LENSES.state, LENSES.breaking, LENSES.security], verifiersPerFinding: 1, arbiter: false, estimatedCalls: 10 }
+  return { mode, finders: [LENSES.correctness, LENSES.state, LENSES.breaking, LENSES.security], verifiersPerFinding: 3, arbiter: false, estimatedCalls: 15 }
 }
 
 const SENSITIVE = [
@@ -57,7 +58,7 @@ export function classifyRisk(files: string[], extraSensitive: string[] = []): { 
   const reasons: string[] = []
   let tier: RiskTier = 'low'
   for (const file of files) {
-    if (SENSITIVE.some(re => re.test(file)) || extraSensitive.some(re => new RegExp(re.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*')).test(file))) {
+    if (SENSITIVE.some(re => re.test(file)) || extraSensitive.some(pattern => matchGlob(pattern, file))) {
       reasons.push('敏感路径：' + file)
       tier = 'high'
     } else if (!DOCS.some(re => re.test(file)) && !TESTS.some(re => re.test(file))) {

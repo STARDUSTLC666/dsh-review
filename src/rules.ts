@@ -5,10 +5,11 @@
  * @module dsh-review/rules
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, lstatSync } from 'node:fs'
 import path from 'node:path'
 
 export interface ReviewRules {
+  guidance: string
   found: boolean
   path: string | null
   /** 跳过审阅的路径 glob。 */
@@ -25,19 +26,23 @@ export interface ReviewRules {
   sensitivePaths: string[]
 }
 
-const CANDIDATES = ['REVIEW.md', '.dsh-review/REVIEW.md', 'docs/REVIEW.md']
+export const RULE_PATHS = ['REVIEW.md', '.dsh-review/REVIEW.md', 'docs/REVIEW.md']
 
 function parseList(lines: string[]): string[] {
   return lines.map(l => l.replace(/^\s*[-*]\s*/, '').trim()).filter(l => l !== '' && !l.startsWith('#'))
 }
 
 export function loadRules(root: string): ReviewRules {
-  const rules: ReviewRules = { found: false, path: null, skip: [], maxNits: null, severityFloor: null, mode: null, failureSignals: [], sensitivePaths: [] }
-  const file = CANDIDATES.map(c => path.join(root, c)).find(p => existsSync(p))
-  if (file === undefined) return rules
-  rules.found = true
-  rules.path = path.relative(root, file).replace(/\\/g, '/')
-  const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+  const file = RULE_PATHS.map(c => path.join(root, c)).find(p => existsSync(p))
+  if (file === undefined) return parseRules('', null)
+  const relative = path.relative(realpathSync(root), realpathSync(file))
+  if (lstatSync(file).isSymbolicLink() || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Review guidance must be a regular file inside the workspace')
+  return parseRules(readFileSync(file, 'utf8'), path.relative(root, file).replace(/\\/g, '/'))
+}
+export function parseRules(content: string, source: string | null): ReviewRules {
+  if (Buffer.byteLength(content) > 32768) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
+  const rules: ReviewRules = { guidance: content, found: source !== null, path: source, skip: [], maxNits: null, severityFloor: null, mode: null, failureSignals: [], sensitivePaths: [] }
+  const lines = content.split(/\r?\n/)
   let section = ''
   for (const raw of lines) {
     const line = raw.trimEnd()
