@@ -1,5 +1,6 @@
 {
   "trustedAuthors": [],
+  "trustedReviewers": [],
   "requiredChecks": [
     { "name": "build-and-test", "appSlug": "github-actions" },
     { "name": "security-review", "appSlug": "github-actions" }

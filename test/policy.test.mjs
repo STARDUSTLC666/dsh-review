@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { parsePolicy, evaluatePullRequest } from '../lib/policy.js'
 import { githubEvidence } from '../lib/github.js'
-const policy = { trustedAuthors:['owner'], requiredChecks:[{name:'tests',appSlug:'github-actions'},{name:'security-review',appSlug:'github-actions'}], sensitivePaths:['src/critical/**'], alwaysTwoPaths:['.github/workflows/**'] }
+const policy = { trustedAuthors:['owner'], trustedReviewers:['human','one','two'], requiredChecks:[{name:'tests',appSlug:'github-actions'},{name:'security-review',appSlug:'github-actions'}], sensitivePaths:['src/critical/**'], alwaysTwoPaths:['.github/workflows/**'] }
 const head = 'a'.repeat(40), base = 'b'.repeat(40)
 const evidence = () => ({ head, author:{login:'owner',type:'User'}, paths:['docs/guide.md'], draft:false, reviews:[], checks:policy.requiredChecks.map((c,i) => ({ id:i+1,name:c.name,app:{slug:c.appSlug},head_sha:head,status:'completed',conclusion:'success' })), unresolvedThreads:0 })
 const approve = (login='human', extra={}) => ({id:1,user:{login,type:'User'},state:'APPROVED',commit_id:head,submitted_at:'2026-10-17T00:00:00Z',...extra})
@@ -37,6 +37,11 @@ test('a later comment does not erase a valid approval, while latest change reque
 test('missing check identities and malformed policy fail closed', () => {
  assert.throws(()=>parsePolicy({...policy,requiredChecks:[]}),/Invalid/)
  assert.throws(()=>parsePolicy({...policy,requiredChecks:[{name:'tests'}]}),/Invalid/)
+})
+test('two unrelated public accounts cannot fill the required reviewer slots', () => {
+ const e=evidence();e.author.login='outsider';e.reviews=[approve('stranger-one'),approve('stranger-two',{id:2})]
+ const result=evaluatePullRequest(policy,e,{tier:'low',extraHuman:false})
+ assert.equal(result.ok,false);assert.deepEqual(result.approvedHumans,[])
 })
 test('GitHub adapter gathers read-only exact-head evidence without accepting partial inventories', async () => {
  const requests=[], pr={head:{sha:head},base:{sha:base,repo:{full_name:'owner/repo'}},changed_files:1,user:{login:'owner',type:'User'},draft:false}

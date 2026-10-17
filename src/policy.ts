@@ -2,6 +2,7 @@ import { classifyRisk, requiredApprovals, type RiskTier } from './modes.js'
 import { matchGlob } from './rules.js'
 export interface ReviewPolicy {
  trustedAuthors: string[]
+ trustedReviewers: string[]
  requiredChecks: Array<{ name: string; appSlug: string }>
  sensitivePaths: string[]
  alwaysTwoPaths: string[]
@@ -14,7 +15,7 @@ export interface PullRequestEvidence {
 }
 export function parsePolicy(raw: unknown): ReviewPolicy {
  const policy = raw as ReviewPolicy
- if (!policy || ['trustedAuthors','sensitivePaths','alwaysTwoPaths'].some(key => !Array.isArray((policy as any)[key]) || (policy as any)[key].some((s: unknown) => typeof s !== 'string' || !s.trim())) || !Array.isArray(policy.requiredChecks) || !policy.requiredChecks.length || policy.requiredChecks.some(c => !c || typeof c.name !== 'string' || !c.name.trim() || typeof c.appSlug !== 'string' || !/^[\w-]+$/.test(c.appSlug))) throw new Error('Invalid trusted review policy; explicit check names and app slugs are required')
+ if (!policy || ['trustedAuthors','trustedReviewers','sensitivePaths','alwaysTwoPaths'].some(key => !Array.isArray((policy as any)[key]) || (policy as any)[key].some((s: unknown) => typeof s !== 'string' || !s.trim())) || !Array.isArray(policy.requiredChecks) || !policy.requiredChecks.length || policy.requiredChecks.some(c => !c || typeof c.name !== 'string' || !c.name.trim() || typeof c.appSlug !== 'string' || !/^[\w-]+$/.test(c.appSlug))) throw new Error('Invalid trusted review policy; explicit reviewers, check names and app slugs are required')
  return policy
 }
 export function evaluatePullRequest(policy: ReviewPolicy, evidence: PullRequestEvidence, risk: { tier: RiskTier; extraHuman: boolean }) {
@@ -30,7 +31,7 @@ export function evaluatePullRequest(policy: ReviewPolicy, evidence: PullRequestE
   if (!review.user || review.user.type !== 'User' || /\[bot\]$/i.test(review.user.login) || !['APPROVED','CHANGES_REQUESTED','DISMISSED'].includes(review.state)) continue
   latest.set(review.user.login.toLowerCase(), review)
  }
- const approved = [...latest.values()].filter(r => r.state === 'APPROVED' && r.commit_id === evidence.head && r.user!.login.toLowerCase() !== evidence.author.login.toLowerCase()).map(r => r.user!.login)
+ const approved = [...latest.values()].filter(r => r.state === 'APPROVED' && r.commit_id === evidence.head && r.user!.login.toLowerCase() !== evidence.author.login.toLowerCase() && policy.trustedReviewers.some(user => user.toLowerCase() === r.user!.login.toLowerCase())).map(r => r.user!.login)
  if (approved.length < required) reasons.push('Exact-commit human approvals: ' + approved.length + '/' + required)
  if ([...latest.values()].some(r => r.state === 'CHANGES_REQUESTED')) reasons.push('A human request for changes is still open')
  if (!Number.isInteger(evidence.unresolvedThreads) || evidence.unresolvedThreads < 0 || evidence.unresolvedThreads > 0) reasons.push('Unresolved review threads: ' + evidence.unresolvedThreads)

@@ -26,7 +26,7 @@ review_gate 的 ok=true 只说明当前目标的 AI 层完成且已发表问题�
 
 ## PR 的完整门禁
 
-先由仓库负责人把 docs/review-policy.example.json 复制为 .github/dsh-review-policy.json，填写实际的可信作者和检查名称/提供方，再提交到受保护基准分支。示例名称不是已经存在的 CI job。
+先由仓库负责人把 docs/review-policy.example.json 复制为 .github/dsh-review-policy.json，填写实际的可信作者、可信审阅者和检查名称/提供方，再提交到受保护基准分支。示例名称不是已经存在的 CI job。trustedReviewers 为空时不计任何人工批准，不能用无关账号的 review 顶替负责人审阅。
 
 受信任作业需要先完成本轮原生提交审查，随后执行：
 
@@ -42,7 +42,7 @@ dsh-review-gate --run <本次运行编号> --root <审阅工作区>
 - 策略从事件指向的基准提交读取，不接受 PR 工作树改写的策略。
 - 每个指定 CI 检查必须来自指定 App、对应当前 HEAD、实际 success；skipped/neutral 不视为成功。
 - 每条 review thread 必须解决，人类 change request 不能仍未撤回。
-- 批准必须为当前 HEAD 的独立真人 review；机器人、作者本人、旧提交、重复用户与已撤回批准不计数。
+- 批准必须为可信审阅者名单中、当前 HEAD 的独立真人 review；机器人、作者本人、名单外账号、旧提交、重复用户与已撤回批准不计数。
 - 非可信作者至少两个真人批准；可信作者按风险 0/1/2 人，第二分类器可提高人数。敏感路径不得低于下限。
 
 本地只查看 AI 层时必须显式加 --ai-only。它会输出“未检查 CI 和人工批准”，不得作为完整合并授权。
