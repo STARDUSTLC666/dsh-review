@@ -42,11 +42,16 @@ export function parseCandidate(raw: unknown, lens: string, target: ReviewTarget)
  finding.id = candidateId(finding, target)
  return finding
 }
-export function parseVote(raw: unknown, taskId: string, expected: string, target: ReviewTarget): Vote {
+export function parseVote(raw: unknown, taskId: string, expected: string, target: ReviewTarget, candidate?: CandidateFinding): Vote {
  const item = raw as Partial<Vote>
  if (!item || item.candidateId !== expected || !['confirm','reject','pre-existing','unverifiable'].includes(item.decision!) || typeof item.reason !== 'string' || item.reason.trim().length < 12 || !Array.isArray(item.witnesses)) throw new Error('Invalid independent verification')
- for (const witness of item.witnesses) if (!witness || (witness.side !== undefined && !['before','after'].includes(witness.side)) || !sourceMatches(target, witness.file, witness.line, witness.anchor, witness.side ?? 'after')) throw new Error('Verifier cited source outside the immutable snapshot')
+ for (const witness of item.witnesses) if (!witness || typeof witness.file !== 'string' || typeof witness.anchor !== 'string' || !witness.anchor.trim() || (witness.side !== undefined && !['before','after'].includes(witness.side)) || !sourceMatches(target, witness.file, witness.line, witness.anchor, witness.side ?? 'after')) throw new Error('Verifier witness is blank or outside the immutable snapshot')
  if (item.decision !== 'unverifiable' && item.witnesses.length === 0) throw new Error('Verifier supplied no checkable source witness')
+ if (item.decision !== 'unverifiable') {
+  if (!candidate || (candidate.id ?? candidateId(candidate, target)) !== expected) throw new Error('Verifier requires the exact candidate being checked')
+  const locations = [candidate, ...(candidate.introducedBy ? [candidate.introducedBy] : [])]
+  if (!item.witnesses.some(witness => locations.some(location => witness.file === location.file && Math.abs(witness.line - location.line) <= 3))) throw new Error('Verifier witness is unrelated to the candidate or introducing change')
+ }
  if (item.decision === 'pre-existing' && !item.witnesses.some(witness => witness.side === 'before')) throw new Error('Pre-existing verdict requires base evidence')
  return { candidateId: expected, decision: item.decision!, reason: item.reason.trim(), witnesses: item.witnesses, taskId }
 }
@@ -74,9 +79,18 @@ export function gateFindings(options: {
   const id = finding.id!, votes = options.votes[id] ?? [], decision = voteDecision(votes, options.requiredVotes)
   if (decision === 'unverifiable') { result.unverified++; continue }
   if (decision === 'reject') {
-   result.rejected.push({ id, reason: votes.map(v => v.reason).join('\n') })
    const prior = record.posted[id]
-   if (prior && !prior.disposition) { prior.disposition = prior.targetId === target.id ? 'wrong' : 'fixed'; prior.note = 'Independent re-verification rejects the former finding on target ' + target.id; prior.verification = votes; prior.targetId = target.id }
+   if (prior && !prior.disposition) {
+    const source = target.files.find(file => file.path === prior.file || file.oldPath === prior.file)
+    const removed = source !== undefined && typeof prior.anchor === 'string' && prior.anchor.trim() !== '' && (source.after === null || !source.after.split(/\r?\n/).includes(prior.anchor))
+    if (!removed) {
+     result.unverified++
+     result.rejected.push({ id, reason: 'The original source anchor remains, or its removal is not covered by this snapshot; human review is required.' })
+     continue
+    }
+    prior.disposition = 'fixed'; prior.note = 'Independent re-verification and snapshot source confirm removal on target ' + target.id; prior.verification = votes; prior.targetId = target.id
+   }
+   result.rejected.push({ id, reason: votes.map(v => v.reason).join('\n') })
    continue
   }
   if (decision !== 'pre-existing' && severityRank(finding.severity) < severityRank(rules.severityFloor ?? config.severityFloor)) { result.dropped++; continue }

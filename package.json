@@ -1,6 +1,6 @@
 {
   "name": "@stardustlc/dsh-review",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "以证据为准的代码审阅插件：审 diff、验证结论、记录噪音，让 agent 先读、人只读结论。",
   "type": "module",
   "main": "lib/index.js",

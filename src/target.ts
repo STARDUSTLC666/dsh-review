@@ -4,6 +4,7 @@ import path from 'node:path'
 import { git } from './exec.js'
 import { parseDiff, type FileDiff } from './diff.js'
 import { loadRules, parseRules, RULE_PATHS, isSkipped, type ReviewRules } from './rules.js'
+import { stateDirectory } from './ledger.js'
 
 export interface TargetFile { path: string; oldPath: string | null; status: string; binary: boolean; before: string | null; after: string | null; addedLines: number[]; removedLines: number[] }
 export interface ReviewTarget {
@@ -56,8 +57,9 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
     } else rules = parseRules('', null)
   } else rules = loadRules(root)
   const skipped: string[] = [], files: TargetFile[] = []
-  const internal = path.isAbsolute(stateDir) ? path.relative(root, stateDir).replaceAll('\\', '/') : stateDir
-  const inState = (file: string) => file === internal || file.startsWith(internal + '/') || file === '.dsh-review' || file.startsWith('.dsh-review/')
+  const relativeState = path.relative(root, stateDirectory(root, stateDir)).replaceAll('\\', '/')
+  const internal = relativeState && relativeState !== '..' && !relativeState.startsWith('../') && !path.isAbsolute(relativeState) ? relativeState : undefined
+  const inState = (file: string) => internal !== undefined && (file === internal || file.startsWith(internal + '/'))
   let total = Buffer.byteLength(patch)
   const blob = async (spec: string) => query(['show', '--no-ext-diff', '--no-textconv', spec])
   for (const entry of entries) {

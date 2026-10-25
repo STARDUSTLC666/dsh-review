@@ -34,7 +34,7 @@ export function startRun(target: ReviewTarget, mode: Mode, config: ReviewConfig,
  ledger.event('run-start', { runId: id, targetId: target.id, mode, independent })
  return run
 }
-export function parseTaskResult(task: LensTask, text: string, target: ReviewTarget, maxFindings: number): Record<string, any> {
+export function parseTaskResult(task: LensTask, text: string, target: ReviewTarget, maxFindings: number, candidate?: CandidateFinding): Record<string, any> {
  if (Buffer.byteLength(text) > 1024 * 1024) throw new Error('Worker output exceeds 1 MiB')
  const value = JSON.parse(text.trim().replace(/^\x60{3}(?:json)?\s*\n([\s\S]*?)\n\x60{3}$/, '$1'))
  if (!value || value.runId !== task.runId || value.targetId !== task.targetId || value.taskId !== task.id) throw new Error('Wrong run, target or task identity')
@@ -43,7 +43,7 @@ export function parseTaskResult(task: LensTask, text: string, target: ReviewTarg
   const parsed = value.findings.map((finding: unknown) => parseCandidate(finding, task.id, target))
   return { runId: task.runId, targetId: task.targetId, taskId: task.id, findings: parsed.filter(Boolean), ignoredStyleCount: parsed.filter((finding: unknown) => finding === null).length, declined: value.declined }
  }
- if (task.role === 'verify') return { runId: task.runId, targetId: task.targetId, ...parseVote(value, task.id, task.candidateId!, target) }
+ if (task.role === 'verify') return { runId: task.runId, targetId: task.targetId, ...parseVote(value, task.id, task.candidateId!, target, candidate) }
  if (task.role === 'risk') {
   if (!['low','medium','high'].includes(value.tier) || typeof value.extraHuman !== 'boolean' || !Array.isArray(value.reasons) || !value.reasons.length || value.reasons.some((r: unknown) => typeof r !== 'string' || !r.trim())) throw new Error('Invalid risk classification')
   return { runId: task.runId, targetId: task.targetId, taskId: task.id, tier: value.tier, extraHuman: value.extraHuman, reasons: value.reasons }
@@ -59,7 +59,7 @@ export function submitResults(ledger: Ledger, runId: string, targetId: string, v
   const parsed = values.map(value => {
    const task = pending.find(task => task.id === (value as { taskId?: string })?.taskId)
    if (!task) throw new Error('Result duplicated or not a task in this stage')
-   return [task.id, parseTaskResult(task, JSON.stringify(value), run.target, config.maxFindings)] as const
+   return [task.id, parseTaskResult(task, JSON.stringify(value), run.target, config.maxFindings, run.candidates.find(candidate => candidate.id === task.candidateId))] as const
   })
   if (new Set(parsed.map(([id]) => id)).size !== parsed.length) throw new Error('Duplicate task result')
   for (const [id, value] of parsed) run.results[id] = value
@@ -70,7 +70,12 @@ function votesFor(run: StoredRun): Record<string, Vote[]> {
  const votes: Record<string, Vote[]> = {}
  for (const task of run.tasks.filter(task => task.role === 'verify')) {
   const value = run.results[task.id] as Vote | undefined
-  if (value) (votes[task.candidateId!] ??= []).push(value)
+  if (value) {
+   try {
+    const checked = parseVote(value, task.id, task.candidateId!, run.target, run.candidates.find(candidate => candidate.id === task.candidateId))
+    ;(votes[task.candidateId!] ??= []).push(checked)
+   } catch { /* Old or invalid persisted votes leave the finding unverified. */ }
+  }
  }
  return votes
 }
@@ -156,7 +161,7 @@ async function executeStages(ledger: Ledger, runId: string, config: ReviewConfig
      const result = await dispatcher.dispatch(task)
      if (!result.ok) throw new Error(result.reason ?? 'Worker failed')
      const text = result.output ?? ''
-     const parsed = parseTaskResult(task, text, run.target, config.maxFindings)
+     const parsed = parseTaskResult(task, text, run.target, config.maxFindings, run.candidates.find(candidate => candidate.id === task.candidateId))
      ledger.transaction(state => { state.runs[runId].results[task.id] = parsed })
     } catch (error) { failed = true; ledger.transaction(state => { const r = state.runs[runId]; r.errors.push(task.id + ': ' + (error instanceof Error ? error.message : String(error))); r.status = signal.aborted ? 'cancelled' : 'incomplete' }) }
    }

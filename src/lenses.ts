@@ -45,6 +45,7 @@ export function verifierTask(input: TaskInput, finding: CandidateFinding, index:
   'Trace the trigger, consequences, relevant callers and counterexamples. Check whether the defect was already present in the base, rather than merely whether the same line existed.',
   'Return candidateId, decision=confirm|reject|pre-existing|unverifiable, reason (specific causal explanation), witnesses=[{file,line,anchor,side:\"after\"|\"before\"}].',
   'Witnesses must quote exact snapshot source. confirm requires evidence linked to this introducing change; pre-existing requires before-side evidence. If evidence is insufficient use unverifiable. Command receipts are optional; do not run arbitrary code solely to fill a field.',
+  'Every witness anchor must be nonblank. At least one witness must be in the candidate file within three lines of its location, or within three lines of its introducing evidence. Include this local witness even when additional evidence is elsewhere.',
  ].join('\n'))
  return task
 }
