@@ -1,3 +1,4 @@
+import { registerUpdates } from '@stardustlc/dsh-updates'
 import { resolveConfig, type ReviewConfig } from './config.js'
 import { buildReviewTools, type ReviewToolDefinition } from './tools.js'
 import { createDispatcher, type SubagentService } from './dispatch.js'
@@ -17,6 +18,8 @@ export interface ReviewPluginContext {
  jobs: { kill(id: string, caller?: string, reason?: string): unknown; wait(id: string, timeoutMs: number, caller?: string): Promise<{ status: string }> }
 }
 export function apply(ctx: ReviewPluginContext, config?: Partial<ReviewConfig> | null): void {
+  registerUpdates(ctx, { name: "@stardustlc/dsh-review" })
+
  const resolved = resolveConfig(config)
  const runner: CommandRunner = async input => {
   const agent = input.exec.agent

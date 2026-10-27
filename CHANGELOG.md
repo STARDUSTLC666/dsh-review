@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.4.0 (2026-10-26)
+
+- Add this plugin’s own update controls and independent preferences. Automatic installation stays off until explicitly enabled.
+- Confirm manual installs, preserve local sources and disabled state, pause for tasks or unsaved changes, and use native DSH recovery without forced restarts.
+- Require the public DSH 0.2.1-rc.3 update APIs; Suite components remain managed through Suite.
+
 ## 0.3.1（2026-10-26）
 
 - 复核证据绑定候选位置与非空源码锚点；旧 finding 仍存在或缺少原文件覆盖时不自动标为已修复。仅排除真实账本目录，默认配置不再隐藏仓库同名目录。

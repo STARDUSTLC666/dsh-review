@@ -1,6 +1,6 @@
 {
   "name": "@stardustlc/dsh-review",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "以证据为准的代码审阅插件：审 diff、验证结论、记录噪音，让 agent 先读、人只读结论。",
   "type": "module",
   "main": "lib/index.js",
@@ -14,7 +14,8 @@
       "default": "./lib/index.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./client": "./lib/update-client.js"
   },
   "files": [
     "lib",
@@ -25,7 +26,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/build-updates.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test \"test/*.test.mjs\"",
     "test:host": "npm run build && node scripts/host-acceptance.mjs",
@@ -34,6 +35,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
     }
   },
   "keywords": [
@@ -48,7 +57,8 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": "^22.19.0 || >=24.0.0"
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.3"
   },
   "publishConfig": {
     "access": "public"
@@ -65,5 +75,8 @@
   "bugs": {
     "url": "https://github.com/STARDUSTLC666/dsh-review/issues"
   },
-  "author": "STARDUSTLC666"
+  "author": "STARDUSTLC666",
+  "dependencies": {
+    "@stardustlc/dsh-updates": "0.1.0"
+  }
 }
