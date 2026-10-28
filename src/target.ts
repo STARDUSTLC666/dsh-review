@@ -28,7 +28,7 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
   const requestedBase = (await query(['rev-parse', '--verify', '--end-of-options', baseRef + '^{commit}'])).trim()
   const base = kind === 'commit' ? (await query(['merge-base', requestedBase, head])).trim() : head
   const selector = kind === 'staged' ? ['--cached', head] : kind === 'commit' ? [base, head] : [head]
-  const common = ['diff', '--no-ext-diff', '--no-textconv', '--no-color']
+  const common = ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', '--output-indicator-new=+', '--output-indicator-old=-', '--output-indicator-context= ']
   const names = await query([...common, '--name-status', '-z', ...selector, '--'])
   const patch = await query([...common, '--unified=3', ...selector, '--'])
   const parsed = parseDiff(patch)

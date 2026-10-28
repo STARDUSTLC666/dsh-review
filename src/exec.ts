@@ -6,6 +6,7 @@
 
 import { spawn } from 'node:child_process'
 import { StringDecoder } from 'node:string_decoder'
+import { prepareRawDiff } from './git-safety.js'
 
 export interface RunResult {
   ok: boolean
@@ -82,7 +83,22 @@ export function run(command: string, args: string[], options: RunOptions): Promi
 }
 
 export async function git(cwd: string, args: string[], timeoutMs = 30000, maxOutputBytes = DEFAULT_OUTPUT_LIMIT, signal?: AbortSignal): Promise<RunResult> {
-  return run('git', ['-c', 'core.quotepath=false', '-c', 'color.ui=false', '-c', 'core.fsmonitor=false', ...args], { cwd, timeoutMs, maxOutputBytes, signal })
+  const config = ['-c', 'core.quotepath=false', '-c', 'color.ui=false', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', '-c', 'core.attributesFile=' + (process.platform === 'win32' ? 'NUL' : '/dev/null')]
+  const env = { ...process.env, GIT_ATTR_NOSYSTEM: '1' }
+  if (args[0] !== 'diff') return run('git', [...config, ...args], { cwd, timeoutMs, maxOutputBytes, signal, env })
+  const started = Date.now()
+  try {
+    const isolation = await prepareRawDiff(async query => {
+      const result = await run('git', [...config, ...query], { cwd, timeoutMs: Math.min(timeoutMs, 10000), maxOutputBytes: 65536, signal, env })
+      if (!result.ok) throw new Error('Git safety metadata unavailable; review incomplete')
+      return result.stdout
+    })
+    const result = await run('git', [...config, isolation.option, ...args], { cwd, timeoutMs, maxOutputBytes, signal, env })
+    isolation.verify()
+    return result
+  } catch (error) {
+    return { ok: false, code: null, stdout: '', stderr: error instanceof Error ? error.message : String(error), timedOut: false, truncated: false, durationMs: Date.now() - started }
+  }
 }
 
 /** 输出裁剪：保留头部与尾部，中间省略。 */

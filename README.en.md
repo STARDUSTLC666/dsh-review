@@ -26,6 +26,8 @@ Every mode includes two separate risk classifications. Sensitive changes cannot 
 
 Each run is bound to an immutable base, HEAD, source snapshot and nonce. Missing or malformed output, changed code, exhausted budgets and incomplete verification block the AI gate. Evidence must cite actual snapshot source; an asserted command transcript alone is insufficient.
 
+Git attribute conversions are isolated so repository clean filters cannot run or hide changes. Effective `info/attributes` rules stop review with an explicit incomplete error. Confirm and remove those rules before retrying; the plugin does not edit Git configuration.
+
 Posted findings require a fix or reasoned disposition. Fixes clear only after independent re-verification. Reviews default to three completed rounds; round three limits new findings to the actual incremental edits while re-checking unresolved findings. New files remain eligible. Binary changes require separate review.
 
 The ten tools are `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue` and `review_eval`. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
