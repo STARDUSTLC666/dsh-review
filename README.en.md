@@ -2,9 +2,11 @@
 
 [中文](README.md)
 
-Independent code review for DeepSeek Harness: find concrete defects, verify them separately, preserve evidence and disclose unfinished work. Inspired by [the Claude Code team's workflow](https://claude.dev/blog/solving-code-review-at-anthropic/).
+Review Git changes with independent defect discovery, cross-checked source evidence, fix tracking and an explicit review gate. Keeps unfinished work and human decisions visible, with quick, standard and deep modes. Inspired by [the Claude Code team's workflow](https://claude.dev/blog/solving-code-review-at-anthropic/).
 
-Requires Git, Node.js 22.19+ or 24+, and the official DSH services for tools, subagents, permission presets and jobs. Runtime acceptance targets DSH 0.2.1-rc.1. Start the conversation at the Git repository root.
+Feedback and contributions are welcome: report [issues](https://github.com/STARDUSTLC666/dsh-review/issues) or submit [pull requests](https://github.com/STARDUSTLC666/dsh-review/pulls).
+
+Requires Git, Node.js 22.19+ or 24+, and the official DSH services for tools, subagents, permission presets and jobs. Requires DSH 0.2.1-rc.3 or newer; [this validation round](docs/validation-0.4.4.md) uses official 0.2.1-rc.4. Start the conversation at the Git repository root.
 
 ```bash
 dsh plugin --profile web add @stardustlc/dsh-review
