@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.4.5 (2026-10-29)
+
+- 同步仓库与 npm 的简明介绍、中英文 README 和反馈入口；本次为文档与包元数据更新。
+- Sync npm descriptions and both README guides with the repository, including issue and pull-request links.
+
 ## 0.4.4 (2026-10-28)
 
 - 隔离 Git 的工作区/全局属性转换，避免仓库 clean 过滤器执行并隐藏真实改动；固定补丁前后缀和行首格式。
