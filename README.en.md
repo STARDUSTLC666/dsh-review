@@ -2,6 +2,10 @@
 
 [中文](README.md)
 
+[![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
+
+[Download statistics](https://github.com/STARDUSTLC666/dsh-suite/blob/npm-downloads/README.md)
+
 Review Git changes with independent defect discovery, cross-checked source evidence, fix tracking and an explicit review gate. Keeps unfinished work and human decisions visible, with quick, standard and deep modes. Inspired by [the Claude Code team's workflow](https://claude.dev/blog/solving-code-review-at-anthropic/).
 
 Feedback and contributions are welcome: report [issues](https://github.com/STARDUSTLC666/dsh-review/issues) or submit [pull requests](https://github.com/STARDUSTLC666/dsh-review/pulls).
@@ -45,6 +49,14 @@ Defaults: three rounds, incremental re-review after round two, 20 findings, two 
 See [integration, migration and rollback](docs/INTEGRATION.md), [design and boundaries](docs/DESIGN.md), [validation](docs/VALIDATION.md) and [changelog](CHANGELOG.md). Evaluation uses curated defect matches, clean controls and separate coverage reporting; it does not claim production recall from synthetic tests.
 
 Issues and PRs are welcome. Include reproducible inputs, versions and expected/actual behavior; redact secrets and private source. MIT License.
+
+## Start using it
+
+1. Install @stardustlc/dsh-review in the profile you use, then start a new session in the target Git repository.
+2. Choose the working tree, staged changes or a Git base, and the appropriate review depth.
+3. Ask the assistant to run review_run. Keep its runId and inspect unfinished work with review_status.
+4. Check each trigger, code location and independent verification; fix the issue or record a reasoned disposition.
+5. Review changed code again and check review_gate. The AI gate does not replace CI or human approval.
 
 ## Plugin updates
 

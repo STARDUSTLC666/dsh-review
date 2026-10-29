@@ -2,9 +2,21 @@
 
 [English](README.en.md)
 
+[![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
+
+[下载统计说明](https://github.com/STARDUSTLC666/dsh-suite/blob/npm-downloads/README.md)
+
 面向 Git 改动的代码审阅插件：独立查找缺陷、交叉复核证据、跟踪修复，并给出明确的审阅门禁。保留未完成项和需人工决定的结论，支持 quick、standard、deep 三种模式。
 
 参考 [Claude Code 团队的审阅流程](https://claude.dev/blog/solving-code-review-at-anthropic/)，实现其中可在 DSH 内完成的审阅环节。它不授予人工批准，也不会自动发评论或合并代码。
+
+## 开始使用
+
+1. 按安装说明把 @stardustlc/dsh-review 安装到实际使用的 profile，再在目标 Git 仓库创建新会话。
+2. 说明审阅范围：当前工作区、暂存改动或指定 Git 基准，并选择合适的审阅深度。
+3. 让助手调用 review_run；保留返回的 runId，查看 review_status 中的未完成项。
+4. 逐项核对触发条件、代码位置和独立复核证据，修复问题或记录有理由的处置。
+5. 代码改变后重新审阅并检查 review_gate；AI 门禁不代替 CI 或人工批准。
 
 ## 使用
 
