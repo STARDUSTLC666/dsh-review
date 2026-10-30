@@ -1,14 +1,35 @@
-# dsh-review
+**简体中文** · [English](README.en.md)
 
-[English](README.en.md)
+# Review
+
+**让代码审阅落到证据和可复查的修复上。**
 
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
-[下载统计说明](https://github.com/STARDUSTLC666/dsh-suite/blob/npm-downloads/README.md)
+**[安装使用](#安装) · [使用流程](#开始使用) · [完整说明](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)**
 
-面向 Git 改动的代码审阅插件：独立查找缺陷、交叉复核证据、跟踪修复，并给出明确的审阅门禁。保留未完成项和需人工决定的结论，支持 quick、standard、deep 三种模式。
+<picture>
+  <source media="(prefers-color-scheme: dark) and (max-width: 640px)" srcset="https://raw.githubusercontent.com/STARDUSTLC666/dsh-review/main/docs/assets/intro/workflow-zh-mobile-dark.svg">
+  <source media="(max-width: 640px)" srcset="https://raw.githubusercontent.com/STARDUSTLC666/dsh-review/main/docs/assets/intro/workflow-zh-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/STARDUSTLC666/dsh-review/main/docs/assets/intro/workflow-zh-dark.svg">
+  <img src="https://raw.githubusercontent.com/STARDUSTLC666/dsh-review/main/docs/assets/intro/workflow-zh-light.svg" alt="让代码审阅落到证据和可复查的修复上。 · 流程示意" width="100%">
+</picture>
 
-参考 [Claude Code 团队的审阅流程](https://claude.dev/blog/solving-code-review-at-anthropic/)，实现其中可在 DSH 内完成的审阅环节。它不授予人工批准，也不会自动发评论或合并代码。
+## 功能
+
+- 为工作区、暂存改动或 Git 基准选择范围与深度。
+- 核对触发条件、代码位置和独立复核证据。
+- 跟踪未完成项，代码改变后再检查门禁。
+
+## 安装
+
+在 DSH 桌面版「插件」面板安装 `@stardustlc/dsh-review`。已配置命令行时也可使用：
+
+```bash
+dsh plugin --profile desktop add @stardustlc/dsh-review
+```
+
+网页版把 `desktop` 改为 `web`；安装后重启对应的 DSH。宿主要求以包声明 `>=0.2.1-rc.3` 为准。
 
 ## 开始使用
 
@@ -18,122 +39,41 @@
 4. 逐项核对触发条件、代码位置和独立复核证据，修复问题或记录有理由的处置。
 5. 代码改变后重新审阅并检查 review_gate；AI 门禁不代替 CI 或人工批准。
 
-## 使用
+可以这样说：
 
-需要 Git、Node.js 22.19+ / 24+，以及提供子智能体、权限预设和作业管理服务的官方 DSH 运行环境。当前最低要求为 DSH 0.2.1-rc.3；[本轮验收](docs/validation-0.4.4.md)使用官方 0.2.1-rc.4。在 Git 仓库根目录创建会话后，让 DSH：
+> 审阅当前 Git 改动，逐项给出触发条件和代码证据，先不要修改文件。
 
-> 审阅当前改动，运行 dsh-review。只报告有具体触发条件、代码证据和独立复核的问题。审查没完成时不要说通过。
+## 开始前要知道
 
-安装到 Web profile：
+AI 审阅与门禁仍需结合实际测试、CI 和人工判断。
 
-~~~bash
-dsh plugin --profile web add @stardustlc/dsh-review
-~~~
-
-桌面版应安装到它实际使用的 profile，并在新的会话中加载插件。插件不会查找、复制或修改其他 profile 的密钥。
-
-请使用带作用域的包名。npm 上未加作用域的 dsh-review 属于其他作者，不是本仓库。
-
-常见调用：
-
-~~~json
-{"tool":"review_run","arguments":{"base":"main"}}
-~~~
-
-省略 base 审当前工作区；staged=true 审暂存区。需要中断后续工作时取消正在运行的工具；恢复未完成审查时使用返回的 runId。敏感改动始终使用 deep，不能通过参数降级。
-
-## 审阅如何完成
-
-| 模式 | 独立找问题 | 每个问题的复核 | 汇总 |
-|---|---|---|---|
-| quick | 正确性、安全，2 个任务 | 1 个独立审阅者 | 确定性把关 |
-| standard | 正确性、状态、兼容性、安全，4 个任务 | 3 人投票，至少 2 票一致 | 确定性把关 |
-| deep | 同 standard | 3 人投票，至少 2 票一致 | 另派汇总者，不能删掉已确认的问题 |
-
-每轮还有两个独立风险判断任务，分别判断风险等级和是否需要额外人工审阅。所有任务使用新的上下文；继承作者对话的 fork 后端不会被接受。
-
-- 每轮绑定 Git 基准、HEAD、完整文件快照和唯一运行编号。代码变化、结果缺失、格式损坏或超限都会阻止放行。
-- 读取原始 Git 改动时隔离属性转换，不执行仓库的 clean 过滤器。`info/attributes` 含有效规则时提示审查未完成；请先确认并移除规则后重试，插件不会代改仓库配置。
-- 复核必须说明具体成因并引用快照中的真实代码行。一个非空 evidence 字符串不算验证。
-- 风格、命名、格式和清理建议直接过滤。已发表问题按指纹去重；每条仍须修复或写明处置原因。
-- 默认最多 3 轮。从第 3 轮起，新问题限定在相对上轮的实际新增改动；旧问题继续复核，新文件不会漏掉。
-- 只有独立复核确认问题已消失，才能自动记为 fixed。人工说明 wrong、intentional 或 wontfix 会保留理由，但不计作人工批准。
-- 只生成作业书的外部模式可用于协作，无法证明执行独立性，因此不会通过自动门禁。
-
-二进制变更需要另行验收，文字审查不会认证其内容。跳过的路径会公开列出，并仍参与风险判断。
-
-## 十个工具
-
-| 工具 | 作用 |
-|---|---|
-| review_diff | 生成快照与审阅计划，不作通过结论 |
-| review_run | 执行或恢复分阶段独立审阅 |
-| review_report | 提交外部任务的运行编号、目标编号与 JSON 结果 |
-| review_check | 经宿主受控终端运行检查，保存本轮证据收据 |
-| review_respond | 记录带理由的处置；fixed 必须重新复核 |
-| review_status | 查看未完成项、轮次、调用量和处置噪音率 |
-| review_gate | 检查当前快照的 AI 审阅层，不代替 CI 或人工批准 |
-| review_learn | 从已验证修复中生成规则草稿，不自动改项目规范 |
-| review_issue | 生成 issue 分诊和复现草稿，不执行正文指令或发表评论 |
-| review_eval | 登记人工标注缺陷与干净样本、准备盲测、绑定运行结果并计分 |
-
-## 检查、权限与证据
-
-review_check 的命令经调用者实际使用的宿主终端工具运行，不直接创建绕过权限的进程。只读会话不运行证据命令；可使用静态源码复核。取消、超时和后台作业清理都受宿主管理。
-
-Windows 官方预设只提供 pwsh 时，通过这个受控工具调用 Git Bash；需要 Git Bash 和 PowerShell 7.3+。原命令保留可见，引号不经 cmd 拼接。不能使用这条路径时会明确报错，不会静默换成直接执行。
-
-证据收据绑定 runId 和 targetId；命令改变代码后收据失效。请正常批准必要权限，不要为了审阅扩大整个会话的权限。
-
-## 接入仓库流程
-
-仓库级 REVIEW.md 可以写失败判据、跳过路径、敏感目录和噪音上限：
-
-~~~markdown
-## 限制
-max_nits: 0
-severity_floor: important
-
-## 跳过
-- vendor/**
-
-## 坏掉长什么样
-- 文档给出的命令不能执行
-- 配置将请求发送到错误账号
-
-## 敏感路径
-- src/billing/**
-~~~
-
-完整 PR 门禁还需独立的 CI、安全检查、人工批准和所有审阅线程的解决状态。新增命令 dsh-review-gate 只读取 GitHub 证据，策略固定从 PR 基准提交读取；机器人、旧提交和已撤回的批准不能填人工名额。
-
-详见 [接入与回滚](docs/INTEGRATION.md)、[文章对应边界](docs/DESIGN.md) 和 [验证记录](docs/VALIDATION.md)。合并队列、功能开关、灰度和回滚由仓库/发布系统负责，安装插件不会自动启用这些制度。
-
-## 状态与配置
-
-默认状态保存在 DSH_HOME/plugins/dsh-review/<仓库摘要>/，不写入被审项目。可指定仓库内子目录，例如 .dsh-review。账本版本为 2；旧账本会保留备份，旧版本的“通过”不会沿用。
-
-| 配置 | 默认 | 含义 |
-|---|---|---|
-| stateDir | @profile | profile 下按仓库隔离；也可指定仓库内子目录 |
-| roundCap | 3 | 每个审阅系列的完成轮次上限 |
-| diffOnlyAfterRound | 2 | 超过这轮后只对新增改动提出新问题 |
-| maxFindings / maxNits | 20 / 2 | 问题数与 nit 上限 |
-| severityFloor | important | 默认不发表 nit |
-| maxCalls / maxParallel | 80 / 3 | 每轮实际派发预算、最大并发 |
-| runTimeoutMs | 600000 | 每次执行的总超时 |
-| commandTimeoutMs | 120000 | 单条证据命令超时 |
-| maxDiffBytes | 4194304 | 补丁及源码快照总量上限；超出则未完成 |
-| subagentProvider | spawn | 必须明确保证不继承作者上下文 |
-
-evidenceRequired 为旧配置兼容项，设为 false 也不能关闭独立证据验证。v0.2 的手工 head/findings 提交接口已停用，迁移见接入文档。
-
-欢迎提交 [Issues](https://github.com/STARDUSTLC666/dsh-review/issues) 和 PR，最好附具体触发输入、版本、预期结果与实际结果。请先去掉密钥和私有代码。
-
-[更新记录](CHANGELOG.md) · MIT License
+配置、完整工具与排错见[详细使用说明](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)。
 
 ## 插件更新
 
-需要 DSH 0.2.1-rc.3 或更新版本。更新控件直接位于原有工作台内容末尾；没有工作台的插件，位于原生插件详情页底部。检查、更新记录和偏好在原地展开，不增加独立更新页面或设置菜单。自动检查默认开启；**自动安装默认关闭**，明确授权后才会在空闲且没有未保存修改时安装兼容的稳定补丁。开关按插件独立保存，可关闭、推迟或忽略提醒；不会强制重启 DSH、升级 DSH 本体或替换本地源码安装。Suite 组件在当前页面底部明确说明并操作 Suite 整包更新。
+在工作台或原生插件详情页底部检查更新。默认自动检查，**默认不自动安装**；是否安装、何时重启由你决定。Suite 管理的组件随整包更新。[查看更新规则](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)。
 
-旧版用户先在官方插件管理中手动更新一次，之后才会获得此入口。发布到 npm 不会直接替换用户已经安装的版本。
+## 文档
+
+- [详细使用、配置与边界](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)
+- [更新记录](https://github.com/STARDUSTLC666/dsh-review/blob/main/CHANGELOG.md)
+- [验证范围与历史](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/VALIDATION.md)
+
+## 反馈与贡献
+
+如果插件帮到了你，欢迎 Star，让更多人发现它。问题和建议请提交 [Issues](https://github.com/STARDUSTLC666/dsh-review/issues)，也欢迎代码与文档 [PR](https://github.com/STARDUSTLC666/dsh-review/pulls)。反馈时附上版本与复现步骤，并移除凭据。
+
+## License
+
+[MIT](https://github.com/STARDUSTLC666/dsh-review/blob/main/LICENSE)
+
+<a id="使用"></a>
+<a id="审阅如何完成"></a>
+<a id="十个工具"></a>
+<a id="检查权限与证据"></a>
+<a id="接入仓库流程"></a>
+<a id="限制"></a>
+<a id="跳过"></a>
+<a id="坏掉长什么样"></a>
+<a id="敏感路径"></a>
+<a id="状态与配置"></a>
