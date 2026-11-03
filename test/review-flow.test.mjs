@@ -1,11 +1,30 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { tmpdir } from 'node:os'
 import { repo, tools, scripted, candidate, ids } from './helpers.mjs'
 test('plan captures target, files and independent review stages without recording a pass', async () => {
  const r = repo(), { call } = tools(r.root), plan = await call('review_diff')
  assert.match(plan.head, /^[a-f0-9]{40}$/); assert.match(plan.targetId, /^[a-f0-9]{64}$/)
  assert.deepEqual(plan.files.map(f => f.path), ['src/a.js']); assert.equal(plan.mode, 'standard')
- assert.equal((await call('review_gate')).ok, false)
+ // The first call must explain the three modes and the next step, not only the numbers.
+ assert.deepEqual(plan.modeOptions.map(option => option.mode), ['quick', 'standard', 'deep'])
+ for (const option of plan.modeOptions) { assert.ok(option.when.length > 20); assert.ok(option.estimatedCalls > 0) }
+ assert.equal(plan.modeOptions.at(-1).arbiter, true); assert.match(plan.nextStep, /review_run/)
+ const gate = await call('review_gate')
+ assert.equal(gate.ok, false); assert.match(gate.nextStep, /review_diff/)
+ // A workspace with no review yet must say what to do instead of only reporting zeros.
+ const empty = await call('review_status')
+ assert.equal(empty.heads, 0); assert.match(empty.nextStep, /review_diff/)
+})
+test('readiness self-check reports the workspace and never pretends to have reviewed', async () => {
+ const r = repo(), { call } = tools(r.root)
+ const health = await call('review_health')
+ assert.equal(health.ok, true); assert.equal(health.workspace.gitRepository, true)
+ assert.equal(health.host.checked, false); assert.match(health.nextStep, /review_diff/)
+ assert.deepEqual(health.modes.map(option => option.mode), ['quick', 'standard', 'deep'])
+ assert.equal((await call('review_status')).posted, 0)
+ const outside = await tools(tmpdir()).call('review_health')
+ assert.equal(outside.workspace.gitRepository, false); assert.equal(outside.ok, false)
 })
 test('a real pipeline dispatches finders and separate verifier votes before accepting', async () => {
  const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [] }), { call } = tools(r.root, {}, { dispatcher: () => d })

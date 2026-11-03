@@ -1,5 +1,13 @@
 # 变更记录
 
+## 未发布
+
+- 新增只读的 review_health：报告 Git 工作区、插件依赖的宿主服务（子智能体、权限预设、作业管理）、本轮生效的预算与三档模式，不作审阅结论；首次使用和环境排查先跑它。
+- 首次使用路径明确为 review_diff（看范围、风险、模式与预算）→ review_run → review_gate；README 中英文同步。
+- 三档审阅模式在调用处可见：mode 参数说明与 review_diff 的 modeOptions 列出各自的问题类别、复核人数、汇总者与预计调用量，模式适用说明由 modes.ts 统一提供。
+- 工作区尚无审阅记录时，review_status 与 review_gate 返回 nextStep，直接说明下一步该调用哪个工具，而不是只报零值或不通过。
+- State the first-use path (review_diff → review_run → review_gate) and expose the three modes with their budgets at the call site instead of only in the README; empty workspaces now explain the next tool call.
+
 ## 0.4.7 (2026-10-30)
 
 - 原生插件列表与详情新增专门生成的鲸鱼娘图标：大头像、独立功能符号、透明留白，适合 30 / 36 px 显示；原封面保留。

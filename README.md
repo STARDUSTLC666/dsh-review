@@ -13,16 +13,20 @@
 ## 开始使用
 
 1. 按安装说明把 @stardustlc/dsh-review 安装到实际使用的 profile，再在目标 Git 仓库创建新会话。
-2. 说明审阅范围：当前工作区、暂存改动或指定 Git 基准，并选择合适的审阅深度。
-3. 让助手调用 review_run；保留返回的 runId，查看 review_status 中的未完成项。
+2. 先调用 review_diff：说明审阅范围（当前工作区、暂存改动或指定 Git 基准），它只返回快照、风险等级、模式与调用预算，不作通过结论。
+3. 确认范围与预算后用 review_run 执行（或按 runId 恢复）；保留 runId，用 review_status 查看未完成项。工作区还没有审阅记录时，review_status 和 review_gate 会直接说明下一步该调用什么。
 4. 逐项核对触发条件、代码位置和独立复核证据，修复问题或记录有理由的处置。
 5. 代码改变后重新审阅并检查 review_gate；AI 门禁不代替 CI 或人工批准。
+
+没把握时先看 review_diff 返回的 modeOptions：它列出 quick / standard / deep 各自的问题类别数、复核人数、汇总者和预计调用量。
 
 ## 使用
 
 需要 Git、Node.js 22.19+ / 24+，以及提供子智能体、权限预设和作业管理服务的官方 DSH 运行环境。当前最低要求为 DSH 0.2.1-rc.3；[本轮验收](docs/validation-0.4.4.md)使用官方 0.2.1-rc.4。在 Git 仓库根目录创建会话后，让 DSH：
 
 > 审阅当前改动，运行 dsh-review。只报告有具体触发条件、代码证据和独立复核的问题。审查没完成时不要说通过。
+
+环境、权限或依赖不确定时，先让助手调用只读的 review_health：它报告 Git 工作区、插件依赖的宿主服务、本轮生效的预算与三档模式。
 
 安装到 Web profile：
 
@@ -34,9 +38,10 @@ dsh plugin --profile web add @stardustlc/dsh-review
 
 请使用带作用域的包名。npm 上未加作用域的 dsh-review 属于其他作者，不是本仓库。
 
-常见调用：
+常见调用（先看计划，再执行同一范围）：
 
 ~~~json
+{"tool":"review_diff","arguments":{"base":"main"}}
 {"tool":"review_run","arguments":{"base":"main"}}
 ~~~
 
@@ -52,6 +57,8 @@ dsh plugin --profile web add @stardustlc/dsh-review
 
 每轮还有两个独立风险判断任务，分别判断风险等级和是否需要额外人工审阅。所有任务使用新的上下文；继承作者对话的 fork 后端不会被接受。
 
+模式选择：只改文档、测试且文件很少用 quick；普通代码改动用 standard；命中敏感路径（支付、鉴权、迁移、工作流、package.json 等）会自动强制 deep，不能用参数降级。省略 mode 时按风险等级和改动规模决定，review_diff 会同时给出这三档的预算对比。
+
 - 每轮绑定 Git 基准、HEAD、完整文件快照和唯一运行编号。代码变化、结果缺失、格式损坏或超限都会阻止放行。
 - 读取原始 Git 改动时隔离属性转换，不执行仓库的 clean 过滤器。`info/attributes` 含有效规则时提示审查未完成；请先确认并移除规则后重试，插件不会代改仓库配置。
 - 复核必须说明具体成因并引用快照中的真实代码行。一个非空 evidence 字符串不算验证。
@@ -62,10 +69,11 @@ dsh plugin --profile web add @stardustlc/dsh-review
 
 二进制变更需要另行验收，文字审查不会认证其内容。跳过的路径会公开列出，并仍参与风险判断。
 
-## 十个工具
+## 十一个工具
 
 | 工具 | 作用 |
 |---|---|
+| review_health | 只读就绪自检：Git 工作区、宿主服务、生效预算与三档模式；不作审阅结论 |
 | review_diff | 生成快照与审阅计划，不作通过结论 |
 | review_run | 执行或恢复分阶段独立审阅 |
 | review_report | 提交外部任务的运行编号、目标编号与 JSON 结果 |

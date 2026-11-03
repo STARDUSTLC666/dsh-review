@@ -20,7 +20,11 @@ For Desktop, install into the profile Desktop actually uses, then start a new co
 
 Use the scoped package name. The unscoped npm package `dsh-review` belongs to another author and is unrelated to this repository.
 
-Ask DSH to review your current changes with `review_run`, or provide `base: "main"` for committed changes and `staged: true` for the index. Interrupted runs can resume with their `runId`.
+Start with `review_diff`: it captures the snapshot and returns the risk tier, mode and call budget without concluding anything. Then run `review_run` (`base: "main"` for committed changes, `staged: true` for the index) and keep its `runId`; interrupted runs resume with it. When a workspace has no review yet, `review_status` and `review_gate` state which call comes next.
+
+When the environment, permissions or dependencies are unclear, call the read-only `review_health` first: it reports the Git workspace, the host services the tools need, the resolved budgets and the three modes.
+
+Pick the depth from `modeOptions` in the `review_diff` result: docs- and test-only edits use `quick`, ordinary code changes use `standard`, and sensitive paths (payments, auth, migrations, workflows, manifests) always force `deep` and cannot be downgraded through arguments.
 
 | Mode | Fresh-context finders | Independent verification | Synthesis |
 |---|---|---|---|
@@ -36,7 +40,7 @@ Git attribute conversions are isolated so repository clean filters cannot run or
 
 Posted findings require a fix or reasoned disposition. Fixes clear only after independent re-verification. Reviews default to three completed rounds; round three limits new findings to the actual incremental edits while re-checking unresolved findings. New files remain eligible. Binary changes require separate review.
 
-The ten tools are `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue` and `review_eval`. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
+The eleven tools are `review_health`, `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue` and `review_eval`. `review_health` is a read-only readiness check (Git workspace, required host services, resolved budgets, the three modes); it never captures a snapshot or concludes a review. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
 
 Evidence commands go through the live caller's controlled host terminal, including permission and cancellation handling. Read-only sessions refuse command execution. On the official Windows preset, controlled `pwsh` bridges to Git Bash when Bash is not exposed; Git Bash and PowerShell 7.3+ are required. There is no direct process fallback.
 
@@ -53,8 +57,8 @@ Issues and PRs are welcome. Include reproducible inputs, versions and expected/a
 ## Start using it
 
 1. Install @stardustlc/dsh-review in the profile you use, then start a new session in the target Git repository.
-2. Choose the working tree, staged changes or a Git base, and the appropriate review depth.
-3. Ask the assistant to run review_run. Keep its runId and inspect unfinished work with review_status.
+2. Choose the working tree, staged changes or a Git base, then call review_diff to see the snapshot, risk tier, mode and budget.
+3. Run review_run for the same target. Keep its runId and inspect unfinished work with review_status.
 4. Check each trigger, code location and independent verification; fix the issue or record a reasoned disposition.
 5. Review changed code again and check review_gate. The AI gate does not replace CI or human approval.
 

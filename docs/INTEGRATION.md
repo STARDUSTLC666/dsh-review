@@ -2,7 +2,9 @@
 
 ## 本地与 DSH
 
-先在 Git 仓库根目录打开会话，运行构建/测试，再调用 review_run。它默认审工作区；指定 staged=true 会固定索引内容；指定 base=main 会审 merge-base 到 HEAD 的提交差异。base 与 staged 不可同时使用。
+先在 Git 仓库根目录打开会话，运行构建/测试。需要确认环境是否就绪时先调用只读的 review_health：它报告 Git 工作区、插件依赖的宿主服务（子智能体、权限预设、作业管理）、本轮生效的预算与三档模式，不作任何审阅结论。
+
+再调用 review_run。它默认审工作区；指定 staged=true 会固定索引内容；指定 base=main 会审 merge-base 到 HEAD 的提交差异。base 与 staged 不可同时使用。
 
 先保留 review_diff 返回的覆盖范围。遇到超限、符号链接、二进制、模型错误或权限问题，应拆分改动、补领域检查或交给人，不得把失败改成空数组后继续。
 

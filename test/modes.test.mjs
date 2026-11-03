@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { planForMode, classifyRisk, modeForRisk, requiredApprovals } from '../lib/modes.js'
+import { planForMode, classifyRisk, modeForRisk, requiredApprovals, MODE_GUIDANCE } from '../lib/modes.js'
 
 test('三档模式的镜头与预算递增', () => {
   const quick = planForMode('quick')
@@ -14,6 +14,11 @@ test('三档模式的镜头与预算递增', () => {
   assert.equal(quick.arbiter, false)
   assert.equal(deep.arbiter, true)
   assert.ok(quick.estimatedCalls < standard.estimatedCalls && standard.estimatedCalls < deep.estimatedCalls)
+})
+
+test('三档模式各有可读的适用说明，供工具与文档共用', () => {
+  for (const mode of ['quick', 'standard', 'deep']) assert.ok(MODE_GUIDANCE[mode].when.length > 20)
+  assert.match(MODE_GUIDANCE.deep.when, /cannot be downgraded/)
 })
 
 test('风险分级：文档=低、普通代码=中、敏感路径=高', () => {

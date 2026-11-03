@@ -51,7 +51,14 @@ export function apply(ctx: ReviewPluginContext, config?: Partial<ReviewConfig> |
    output: String(value.stdout?.text ?? '') + (value.stderr?.text ? '\n' + value.stderr.text : '') }
  }
  const dispatcher = (exec: ToolExecutionContext, root: string, signal: AbortSignal) => createDispatcher({ subagents: ctx.subagents, parent: exec.agent, provider: resolved.subagentProvider, signal, cwd: root })
- for (const definition of buildReviewTools(resolved, { runner, dispatcher })) {
+ // review_health reports the same services the tools need, so a first run fails
+ // with a readable readiness line instead of a mid-review service error.
+ const services = () => ({
+  subagents: typeof (ctx.subagents as { dispatch?: unknown } | undefined)?.dispatch === 'function' || typeof (ctx.subagents as { settle?: unknown } | undefined)?.settle === 'function',
+  permissionPresets: typeof ctx.permissionPresets?.current === 'function' && typeof ctx.permissionPresets?.resolve === 'function',
+  jobs: typeof ctx.jobs?.kill === 'function' && typeof ctx.jobs?.wait === 'function',
+ })
+ for (const definition of buildReviewTools(resolved, { runner, dispatcher, services })) {
   if (ctx.effect) ctx.effect(() => ctx.tools.register(definition))
   else ctx.tools.register(definition)
  }

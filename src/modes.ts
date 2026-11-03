@@ -31,6 +31,16 @@ export const LENSES: Record<string, Lens> = {
   security: { id: 'security', title: '安全与秘密', focus: '注入、路径穿越、权限判断、密钥泄漏、日志敏感信息' },
 }
 
+/**
+ * When to pick each mode, in the words used by the tools and the README.
+ * Kept beside `planForMode` so the advertised cost and the real budget cannot drift.
+ */
+export const MODE_GUIDANCE: Record<Mode, { when: string }> = {
+  quick: { when: 'Small, low-risk changes and docs-only edits, where one verifier per candidate is enough.' },
+  standard: { when: 'Mixed code changes of any size; the default when the change is neither trivial nor sensitive.' },
+  deep: { when: 'Sensitive paths (payments, auth, migrations, workflows, manifests); these always require deep and cannot be downgraded.' },
+}
+
 export function planForMode(mode: Mode): ModePlan {
   if (mode === 'quick') {
     return { mode, finders: [LENSES.correctness, LENSES.security], verifiersPerFinding: 1, arbiter: false, estimatedCalls: 5 }

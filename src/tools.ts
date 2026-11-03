@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { realpathSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { classifyRisk, modeForRisk, planForMode, requiredApprovals, type Mode } from './modes.js'
+import { classifyRisk, modeForRisk, planForMode, requiredApprovals, MODE_GUIDANCE, type Mode } from './modes.js'
 import { Ledger, type StoredRun, type Disposition } from './ledger.js'
 import { captureTarget, type ReviewTarget } from './target.js'
 import { runCheck, type CommandRunner, type ToolExecutionContext } from './check.js'
@@ -23,6 +23,8 @@ export interface ReviewToolDefinition {
 export interface BuildOptions {
  runner?: CommandRunner
  dispatcher?: (exec: ToolExecutionContext, root: string, signal: AbortSignal) => Dispatcher
+ /** Host services this plugin depends on; `index.ts` supplies them, direct callers may omit them. */
+ services?: () => { subagents: boolean; permissionPresets: boolean; jobs: boolean }
 }
 function parameters(spec: Record<string, any>): ReviewToolDefinition['parameters'] {
  const properties: Record<string, unknown> = {}, required: string[] = []
@@ -55,9 +57,25 @@ const targetSpec = {
  base: { type: 'string', description: 'Compare the merge base of this ref with HEAD; omit for working tree.' },
  staged: { type: 'boolean', description: 'Review index snapshots, independently of the working tree.' },
  includeUntracked: { type: 'boolean', description: 'Include untracked files; default true for working-tree reviews.' },
- mode: { type: 'string', enum: ['quick','standard','deep'], description: 'Sensitive paths always require deep.' },
+ mode: { type: 'string', enum: ['quick','standard','deep'], description: 'quick: 2 lenses, 1 verifier per finding, about 5 calls, for small low-risk changes. standard: 4 lenses, 3 voters, about 15 calls, for mixed code changes. deep: adds an arbiter, about 25 calls, and is always required for sensitive paths. Omit to let risk tier and file count decide.' },
+}
+const MODES: Mode[] = ['quick', 'standard', 'deep']
+/** The three modes with the same budget `planForMode` schedules, so the choice is visible before spending calls. */
+function modeOptions() {
+ return MODES.map(mode => { const plan = planForMode(mode); return { mode, finders: plan.finders.length, verifiersPerFinding: plan.verifiersPerFinding, arbiter: plan.arbiter, estimatedCalls: plan.estimatedCalls, when: MODE_GUIDANCE[mode].when } })
 }
 const runSpec = { runId: { type: 'string', required: true }, targetId: { type: 'string', required: true } }
+/** Walk up like Git does; a worktree or submodule stores `.git` as a file. */
+function repositoryRoot(directory: string): string | null {
+ let current = directory
+ for (let depth = 0; depth < 40; depth++) {
+  if (existsSync(path.join(current, '.git'))) return current
+  const parent = path.dirname(current)
+  if (parent === current) return null
+  current = parent
+ }
+ return null
+}
 function render(_args: unknown, value: unknown): ContentBlock[] {
  const result = value as any
  if (result.runId) return [{ type: 'text', text: 'Review ' + result.runId + ' · ' + (result.status ?? (result.ok ? 'automated checks passed' : 'blocked')) + '\n' + JSON.stringify(result, null, 2) }]
@@ -76,14 +94,15 @@ export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {
    } }
  }
  return [
-  tool('review_diff', 'Capture an immutable diff and source snapshot, then plan independent review. This is a plan, never an approval.', targetSpec,
+  tool('review_diff', 'Start here: capture an immutable diff and source snapshot, then plan the independent review with its risk tier, mode and call budget. This is a plan, never an approval.', targetSpec,
    async (args, exec, root, ledger) => {
     const target = await captureTarget(root, args, config.maxDiffBytes, config.stateDir, exec.signal)
     const risk = classifyRisk(target.allPaths, target.rules.sensitivePaths), mode = modeFor(target, args.mode)
     const record = ledger.snapshot().heads[target.series]
     return { targetId: target.id, head: target.head, base: target.base, kind: target.kind, mode, risk, suggestedHumanApprovals: requiredApprovals(risk.tier),
      files: target.files.map(f => ({ path: f.path, oldPath: f.oldPath, status: f.status, binary: f.binary, added: f.addedLines.length, removed: f.removedLines.length })),
-     skipped: target.skipped, rules: target.rules, plan: planForMode(mode), completedRounds: record?.round ?? 0, roundCap: config.roundCap, maxCalls: config.maxCalls,
+     skipped: target.skipped, rules: target.rules, plan: planForMode(mode), modeOptions: modeOptions(), completedRounds: record?.round ?? 0, roundCap: config.roundCap, maxCalls: config.maxCalls,
+     nextStep: 'Review the risk tier and budget, then call review_run with the same base/staged/includeUntracked inputs to execute this plan, and review_gate afterwards. dryRun only returns a manual task book and cannot pass the automatic gate.',
      advice: 'Fresh-context bug finders, independent verification and two risk classifications. No merge or human approval is granted.' }
    }),
   tool('review_run', 'Run fresh-context finders, two risk classifiers, independent verifiers and deep-mode arbitration. Resume with runId; dryRun returns task envelopes and never passes the automatic gate.',
@@ -148,7 +167,7 @@ export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {
      if (latest) run = state.runs[latest]
      if (run?.targetId !== current.id) run = undefined
     }
-    if (!run) return { ok: false, exitCode: 1, reasons: ['No review of this exact current snapshot'], boundary: 'AI review only; CI and human approval are separate.' }
+    if (!run) return { ok: false, exitCode: 1, reasons: ['No review of this exact current snapshot'], nextStep: 'Run review_diff for the current snapshot, then review_run on the same target. A gate only reports a completed independent review of this exact snapshot; editing code invalidates earlier runs.', boundary: 'AI review only; CI and human approval are separate.' }
     await assertCurrent(run, ledger, config, exec.signal)
     return automatedVerdict(ledger.snapshot(), run.id)
    }),
@@ -175,7 +194,7 @@ export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {
      const rows = findings.filter(f => (f.lens ?? 'unknown') === lens), answered = rows.filter(f => f.disposition), wrong = answered.filter(f => f.disposition === 'wrong' || f.disposition === 'intentional')
      return { lens, posted: rows.length, answered: answered.length, noiseRate: answered.length ? wrong.length / answered.length : null }
     })
-    return { ...status, lenses }
+    return { ...status, lenses, ...(status.heads === 0 ? { nextStep: 'No review has been recorded in this workspace yet. Call review_diff to see the snapshot plan, risk tier and mode budget, then review_run to execute it.' } : {}) }
    }),
   tool('review_learn', 'Draft concise review rules from independently verified fixed bugs and their failure classes. Returns a draft; never edits project instructions.', {},
    async (_args, _exec, _root, ledger) => {
@@ -193,5 +212,18 @@ export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {
   tool('review_eval', 'Register human-curated historical bugs and clean controls, prepare blinded tasks, record exact native runs and score recall/noise per cohort. Any finding is not a recall hit.',
    { action: { type: 'string', required: true, enum: ['register','list','prompts','record','score'] }, entries: { type: 'array', items: { type: 'object', additionalProperties: true } }, caseId: { type: 'string' }, runId: { type: 'string' }, cohort: { type: 'string' } },
    async (args, _exec, root, ledger) => evaluation(ledger, root, args)),
+  tool('review_health', 'Read-only readiness self-check before the first review: Git workspace, required host services, resolved budgets and the next call. Never captures a snapshot, reviews code or grants approval.', {},
+   async (_args, _exec, root) => {
+    const repository = repositoryRoot(root), host = options.services?.() ?? null
+    return {
+     ok: repository !== null && (host === null || Object.values(host).every(Boolean)),
+     workspace: { root, gitRepository: repository !== null, repositoryRoot: repository },
+     host: host === null ? { checked: false, reason: 'The host service snapshot is unavailable in this context.' } : { checked: true, ...host },
+     limits: { roundCap: config.roundCap, maxCalls: config.maxCalls, maxParallel: config.maxParallel, runTimeoutMs: config.runTimeoutMs, commandTimeoutMs: config.commandTimeoutMs, maxDiffBytes: config.maxDiffBytes, severityFloor: config.severityFloor, subagentProvider: config.subagentProvider },
+     modes: modeOptions(),
+     nextStep: 'Call review_diff for the snapshot plan, then review_run on the same target; review_status lists unfinished work and review_gate reports only the AI layer.',
+     boundary: 'Readiness only: no snapshot was captured, no code was reviewed and no approval was granted.',
+    }
+   }),
  ]
 }
