@@ -1,0 +1,67 @@
+> Full usage reference. The landing page focuses on outcomes, installation and workflows; detailed parameters, limits, update rules and historical validation links remain here.
+
+# dsh-review
+
+[中文](../README.md)
+
+[![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
+
+[Download statistics](https://github.com/STARDUSTLC666/dsh-suite/blob/npm-downloads/README.md)
+
+Review Git changes with independent defect discovery, cross-checked source evidence, fix tracking and an explicit review gate. Keeps unfinished work and human decisions visible, with quick, standard and deep modes. Inspired by [the Claude Code team's workflow](https://claude.dev/blog/solving-code-review-at-anthropic/).
+
+Feedback and contributions are welcome: report [issues](https://github.com/STARDUSTLC666/dsh-review/issues) or submit [pull requests](https://github.com/STARDUSTLC666/dsh-review/pulls).
+
+Requires Git, Node.js 22.19+ or 24+, and the official DSH services for tools, subagents, permission presets and jobs. Requires DSH 0.2.1-rc.3 or newer; [this validation round](validation-0.4.4.md) uses official 0.2.1-rc.4. Start the conversation at the Git repository root.
+
+```bash
+dsh plugin --profile web add @stardustlc/dsh-review
+```
+
+For Desktop, install into the profile Desktop actually uses, then start a new conversation. No credentials are copied or modified.
+
+Use the scoped package name. The unscoped npm package `dsh-review` belongs to another author and is unrelated to this repository.
+
+Ask DSH to review your current changes with `review_run`, or provide `base: "main"` for committed changes and `staged: true` for the index. Interrupted runs can resume with their `runId`.
+
+| Mode | Fresh-context finders | Independent verification | Synthesis |
+|---|---|---|---|
+| quick | Correctness and security | One verifier per candidate | Deterministic filtering |
+| standard | Correctness, state, compatibility, security | Three voters, two must agree | Deterministic filtering |
+| deep | Same four lenses | Three voters, two must agree | Additional arbiter preserving confirmed findings |
+
+Every mode includes two separate risk classifications. Sensitive changes cannot be downgraded. Forked author context is rejected.
+
+Each run is bound to an immutable base, HEAD, source snapshot and nonce. Missing or malformed output, changed code, exhausted budgets and incomplete verification block the AI gate. Evidence must cite actual snapshot source; an asserted command transcript alone is insufficient.
+
+Git attribute conversions are isolated so repository clean filters cannot run or hide changes. Effective `info/attributes` rules stop review with an explicit incomplete error. Confirm and remove those rules before retrying; the plugin does not edit Git configuration.
+
+Posted findings require a fix or reasoned disposition. Fixes clear only after independent re-verification. Reviews default to three completed rounds; round three limits new findings to the actual incremental edits while re-checking unresolved findings. New files remain eligible. Binary changes require separate review.
+
+The ten tools are `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue` and `review_eval`. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
+
+Evidence commands go through the live caller's controlled host terminal, including permission and cancellation handling. Read-only sessions refuse command execution. On the official Windows preset, controlled `pwsh` bridges to Git Bash when Bash is not exposed; Git Bash and PowerShell 7.3+ are required. There is no direct process fallback.
+
+Default state is `DSH_HOME/plugins/dsh-review/<repository hash>/`. A workspace child directory can be configured explicitly. Corrupt ledgers fail closed; v1 evidence is backed up without inheriting old approvals.
+
+Defaults: three rounds, incremental re-review after round two, 20 findings, two nits, severity floor `important`, 80 worker calls, concurrency three, ten-minute run timeout, two-minute command timeout, 4 MiB snapshot limit and the `spawn` backend. The legacy `evidenceRequired: false` setting cannot disable independent verification.
+
+`dsh-review-gate` can combine the AI result with read-only GitHub evidence: successful required checks, resolved threads and current-commit human approvals. Trusted-author policy is loaded from the PR base commit, never its editable working files. Owners must separately enforce branch protection, CODEOWNERS, merge queues and release controls.
+
+See [integration, migration and rollback](INTEGRATION.md), [design and boundaries](DESIGN.md), [validation](VALIDATION.md) and [changelog](../CHANGELOG.md). Evaluation uses curated defect matches, clean controls and separate coverage reporting; it does not claim production recall from synthetic tests.
+
+Issues and PRs are welcome. Include reproducible inputs, versions and expected/actual behavior; redact secrets and private source. MIT License.
+
+## Start using it
+
+1. Install @stardustlc/dsh-review in the profile you use, then start a new session in the target Git repository.
+2. Choose the working tree, staged changes or a Git base, and the appropriate review depth.
+3. Ask the assistant to run review_run. Keep its runId and inspect unfinished work with review_status.
+4. Check each trigger, code location and independent verification; fix the issue or record a reasoned disposition.
+5. Review changed code again and check review_gate. The AI gate does not replace CI or human approval.
+
+## Plugin updates
+
+Requires DSH 0.2.1-rc.3 or newer. Update controls sit at the bottom of the existing workbench, or native plugin details for plugins without a workbench. Checks, release notes and preferences expand in place, with no separate update page or settings menu. Automatic checks are on by default; **automatic installation is off by default**. Only explicit opt-in permits compatible stable patches while idle with no unsaved changes. Preferences are independent, with per-plugin disable, deferral and ignore controls. No forced DSH restart or upgrade, and local-source installations stay unchanged. Suite components explain and operate on the whole Suite in the same footer.
+
+Older releases need one manual update in native plugin management to acquire these controls. Publishing to npm does not replace an existing user installation.
