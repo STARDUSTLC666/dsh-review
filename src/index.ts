@@ -3,7 +3,7 @@ import { resolveConfig, type ReviewConfig } from './config.js'
 import { buildReviewTools, type ReviewToolDefinition } from './tools.js'
 import { createDispatcher, type SubagentService } from './dispatch.js'
 import type { CommandRunner, ToolExecutionContext } from './check.js'
-import { randomUUID } from 'node:crypto'
+import { executeHostCommand, type ControlledTools } from './host-command.js'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
@@ -12,7 +12,7 @@ export const inject = ['tools', 'subagents', 'permissionPresets', 'jobs']
 interface HostResult { isError?: boolean; value?: any; error?: { message?: string } }
 export interface ReviewPluginContext {
  effect?(effect: () => () => void): unknown
- tools: { register(definition: ReviewToolDefinition): () => void; execute(call: Record<string, unknown>): Promise<HostResult>; get?(name: string, agent: unknown): unknown }
+ tools: ControlledTools & { register(definition: ReviewToolDefinition): () => void; get?(name: string, agent: unknown): unknown }
  subagents: SubagentService
  permissionPresets: { current(session: unknown): string; resolve(name: string): { sandbox: string } }
  jobs: { kill(id: string, caller?: string, reason?: string): unknown; wait(id: string, timeoutMs: number, caller?: string): Promise<{ status: string }> }
@@ -37,7 +37,7 @@ export function apply(ctx: ReviewPluginContext, config?: Partial<ReviewConfig> |
    command = "if ($PSVersionTable.PSVersion -lt [version]'7.3') { throw 'Git Bash bridging requires PowerShell 7.3+' }; $PSNativeCommandArgumentPassing = 'Standard'; & " + quote(bash) + ' -lc ' + quote(input.command) + '; exit $LASTEXITCODE'
    toolName = 'pwsh'
   }
-  const result = await tools.execute({ callId: 'review-check-' + randomUUID(), name: toolName, arguments: { command, description: 'Run review evidence in Git Bash', workdir: input.cwd, timeoutMs: 600000 }, agent, signal: input.signal })
+  const result: HostResult = await executeHostCommand(tools, { name: toolName, arguments: { command, description: 'Run review evidence in Git Bash', workdir: input.cwd, timeoutMs: 600000 }, agent, signal: input.signal })
   if (result.isError || !result.value) throw new Error(result.error?.message ?? 'Controlled Bash execution failed')
   const value = result.value
   if (value.kind === 'promoted' || value.kind === 'background') {

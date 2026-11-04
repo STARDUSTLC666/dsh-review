@@ -66,3 +66,5 @@ If the plugin helps, a Star makes it easier for others to discover. Report probl
 ## License
 
 [MIT](https://github.com/STARDUSTLC666/dsh-review/blob/main/LICENSE)
+
+Evidence checks follow the current native or PTC executor and retain host permission/cancellation controls. Refused or incomplete results never count as passing evidence.

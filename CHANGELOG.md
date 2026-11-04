@@ -1,5 +1,13 @@
 # 变更记录
 
+## 0.5.1 (2026-11-04)
+
+- 同步共享界面：嵌入设置时继承宿主底色，输入框跟随主题，空状态保持可读宽度；新版 DSH 可显示插件设置图标。
+- Align embedded surfaces, themed inputs, readable empty states and optional native settings icons.
+- 证据检查适配原生批量调用与 TypeScript/Python PTC transport，保持权限和取消边界。
+- Dispatch evidence through native batches or selected TypeScript/Python PTC transports with permission and cancellation checks.
+
+
 ## 0.5.0 (2026-11-03)
 
 - 新增只读的 review_health：报告 Git 工作区、插件依赖的宿主服务（子智能体、权限预设、作业管理）、本轮生效的预算与三档模式，不作审阅结论；首次使用和环境排查先跑它。
