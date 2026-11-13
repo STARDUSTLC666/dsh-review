@@ -12,7 +12,7 @@ Review Git changes with independent defect discovery, cross-checked source evide
 
 Feedback and contributions are welcome: report [issues](https://github.com/STARDUSTLC666/dsh-review/issues) or submit [pull requests](https://github.com/STARDUSTLC666/dsh-review/pulls).
 
-Requires Git, Node.js 22.19+ or 24+, and the official DSH services for tools, subagents, permission presets and jobs. Requires DSH 0.2.1-rc.3 or newer; [this validation round](validation-0.4.4.md) uses official 0.2.1-rc.4. Start the conversation at the Git repository root.
+Requires Git, Node.js 22.19+ or 24+, and the official DSH services for tools, subagents, permission presets and jobs. Requires DSH 0.2.2-rc.3 or newer; this round's adaptation check is [recorded here](validation-0.5.2.md), and the earlier full validation is [0.4.4](validation-0.4.4.md). Start the conversation at the Git repository root.
 
 ```bash
 dsh plugin --profile web add @stardustlc/dsh-review
@@ -62,6 +62,6 @@ Issues and PRs are welcome. Include reproducible inputs, versions and expected/a
 
 ## Plugin updates
 
-Requires DSH 0.2.1-rc.3 or newer. Update controls sit at the bottom of the existing workbench, or native plugin details for plugins without a workbench. Checks, release notes and preferences expand in place, with no separate update page or settings menu. Automatic checks are on by default; **automatic installation is off by default**. Only explicit opt-in permits compatible stable patches while idle with no unsaved changes. Preferences are independent, with per-plugin disable, deferral and ignore controls. No forced DSH restart or upgrade, and local-source installations stay unchanged. Suite components explain and operate on the whole Suite in the same footer.
+Requires DSH 0.2.2-rc.3 or newer. Update controls sit at the bottom of the existing workbench, or native plugin details for plugins without a workbench. Checks, release notes and preferences expand in place, with no separate update page or settings menu. Automatic checks are on by default; **automatic installation is off by default**. Only explicit opt-in permits compatible stable patches while idle with no unsaved changes. Preferences are independent, with per-plugin disable, deferral and ignore controls. No forced DSH restart or upgrade, and local-source installations stay unchanged. Suite components explain and operate on the whole Suite in the same footer.
 
 Older releases need one manual update in native plugin management to acquire these controls. Publishing to npm does not replace an existing user installation.

@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.2 (2026-11-14)
+
+- 适配 DSH 0.2.2-rc.3：`review_health` 的子代理能力探测改用 `startActivation`（0.2.2 已移除旧的 dispatch / settle 服务方法），最低 Harness 声明提升至 0.2.2-rc.3。
+- Support DSH 0.2.2-rc.3: `review_health` now probes `startActivation`, because 0.2.2 removed the legacy dispatch / settle service methods; raise the minimum Harness declaration to 0.2.2-rc.3.
+
 ## 0.5.1 (2026-11-04)
 
 - 同步共享界面：嵌入设置时继承宿主底色，输入框跟随主题，空状态保持可读宽度；新版 DSH 可显示插件设置图标。

@@ -54,7 +54,7 @@ export function apply(ctx: ReviewPluginContext, config?: Partial<ReviewConfig> |
  // review_health reports the same services the tools need, so a first run fails
  // with a readable readiness line instead of a mid-review service error.
  const services = () => ({
-  subagents: typeof (ctx.subagents as { dispatch?: unknown } | undefined)?.dispatch === 'function' || typeof (ctx.subagents as { settle?: unknown } | undefined)?.settle === 'function',
+  subagents: typeof (ctx.subagents as { startActivation?: unknown } | undefined)?.startActivation === 'function',
   permissionPresets: typeof ctx.permissionPresets?.current === 'function' && typeof ctx.permissionPresets?.resolve === 'function',
   jobs: typeof ctx.jobs?.kill === 'function' && typeof ctx.jobs?.wait === 'function',
  })
