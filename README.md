@@ -59,9 +59,9 @@ AI 审阅与门禁仍需结合实际测试、CI 和人工判断。
 - [更新记录](https://github.com/STARDUSTLC666/dsh-review/blob/main/CHANGELOG.md)
 - [验证范围与历史](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/VALIDATION.md)
 
-## 反馈与贡献
+## 反馈
 
-如果插件帮到了你，欢迎 Star，让更多人发现它。问题和建议请提交 [Issues](https://github.com/STARDUSTLC666/dsh-review/issues)，也欢迎代码与文档 [PR](https://github.com/STARDUSTLC666/dsh-review/pulls)。反馈时附上版本与复现步骤，并移除凭据。
+如果插件帮到了你，欢迎 Star，让更多人发现它。问题和建议请提交 [Issues](https://github.com/STARDUSTLC666/dsh-review/issues)。反馈时附上版本与复现步骤，并移除凭据。
 
 ## License
 
