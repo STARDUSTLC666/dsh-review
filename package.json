@@ -1,6 +1,6 @@
 {
   "name": "@stardustlc/dsh-review",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "DeepSeek Harness 代码审阅插件：独立缺陷发现、证据复核、风险分级、修复跟踪与门禁校验。欢迎提交 issues 和 PR。",
   "type": "module",
   "main": "lib/index.js",
@@ -53,7 +53,12 @@
     "code-review",
     "pull-request",
     "review",
-    "agent"
+    "agent",
+    "deepseek",
+    "ai-agent",
+    "git-diff",
+    "static-analysis",
+    "代码审阅"
   ],
   "license": "MIT",
   "engines": {
@@ -77,7 +82,7 @@
   },
   "author": "STARDUSTLC666",
   "dependencies": {
-    "@stardustlc/dsh-updates": "0.2.1"
+    "@stardustlc/dsh-updates": "0.2.2"
   },
   "icon": "./assets/plugin-icon.webp"
 }
