@@ -1,6 +1,6 @@
 {
   "name": "@stardustlc/dsh-review",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "DSH 代码审阅：独立发现缺陷、证据复核、修复跟踪与门禁；支持三种审阅模式。欢迎提交 issues 和 PR。",
   "type": "module",
   "main": "lib/index.js",
@@ -38,12 +38,7 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar"
-      ]
+      "platform": "web"
     }
   },
   "keywords": [
@@ -78,7 +73,7 @@
   },
   "author": "STARDUSTLC666",
   "dependencies": {
-    "@stardustlc/dsh-updates": "0.1.4"
+    "@stardustlc/dsh-updates": "0.2.0"
   },
   "icon": "./assets/plugin-icon.webp"
 }
