@@ -4,6 +4,8 @@
 
 **让代码审阅落到证据和可复查的修复上。**
 
+DeepSeek Harness（`>=0.2.2-rc.3`）证据驱动代码审阅插件：通过独立上下文发现缺陷、多审阅员复核投票、风险分级与增量轮次收敛跟踪改动，并支持快速/标准/深度三种审阅门禁。
+
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
 **[安装使用](#安装) · [使用流程](#开始使用) · [完整说明](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)**

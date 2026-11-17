@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Review",
-    "description": "Evidence-backed code review with fresh-context bug finders, independent verifier voting, risk classification, incremental rounds, and automated gates."
+    "description": "Evidence-backed code review for DeepSeek Harness: fresh-context bug finders, independent verifier voting, risk classification, incremental rounds, and gate checks."
   }
 }

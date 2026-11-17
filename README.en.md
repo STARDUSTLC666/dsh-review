@@ -4,6 +4,8 @@
 
 **Review code with evidence and fixes you can recheck.**
 
+Evidence-backed code review plugin for DeepSeek Harness (`>=0.2.2-rc.3`): combines fresh-context defect discovery, independent verifier voting, risk classification, and incremental round tracking across quick, standard, and deep review gates.
+
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
 **[Install](#install) · [Workflow](#start-using-it) · [Full guide](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md)**
