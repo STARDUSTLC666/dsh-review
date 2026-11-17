@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.4 (2026-11-18)
+
+- 深度适配 DSH 0.2.2：补齐 manifestVersion 1 与双语元数据；合并缓存仓库 Git 元数据查询并并行化只读检查以显著提升 Windows 响应速度，增强账本原子重命名重试与 Git Bash 路径探测。
+- Deeply adapt to DSH 0.2.2: add manifestVersion 1 and bilingual locale metadata; cache combined Git metadata probes and parallelize read-only target queries for faster Windows execution, add EPERM/EACCES rename retries, and mark read-only tools concurrency-safe.
+
 ## 0.5.3 (2026-11-17)
 
 - 在原生插件详情页单独检查和安装兼容版本。自动安装默认关闭，可为该插件开启空闲时的稳定补丁更新。

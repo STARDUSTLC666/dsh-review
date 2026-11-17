@@ -80,7 +80,18 @@ export class Ledger {
   if (this.state.legacy && !existsSync(this.file + '.v1.backup') && existsSync(this.file)) copyFileSync(this.file, this.file + '.v1.backup', constants.COPYFILE_EXCL)
   const tmp = this.file + '.tmp-' + process.pid + '-' + randomUUID()
   const text = JSON.stringify({ ...this.state, revision: this.state.revision + 1 }, null, 2) + '\n'
-  try { writeFileSync(tmp, text, { flag: 'wx' }); renameSync(tmp, this.file); this.state.revision++ } finally { if (existsSync(tmp)) unlinkSync(tmp) }
+  try {
+   writeFileSync(tmp, text, { flag: 'wx' })
+   for (let attempt = 0; ; attempt++) {
+    try { renameSync(tmp, this.file); break }
+    catch (error) {
+     const code = (error as NodeJS.ErrnoException).code
+     if (process.platform === 'win32' && attempt < 2 && (code === 'EPERM' || code === 'EACCES')) continue
+     throw error
+    }
+   }
+   this.state.revision++
+  } finally { if (existsSync(tmp)) unlinkSync(tmp) }
  }
  transaction<T>(work: (state: LedgerState) => T): T {
   return this.locked(() => { this.state = this.read(); const value = work(this.state); this.write(); return value })

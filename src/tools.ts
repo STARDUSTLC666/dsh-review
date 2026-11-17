@@ -17,6 +17,7 @@ export interface ReviewToolDefinition {
  name: string; description: string
  parameters: { type: 'object'; properties: Record<string, unknown>; required?: string[]; additionalProperties?: boolean }
  output: { schema: Record<string, unknown>; render(args: unknown, value: unknown): ContentBlock[] }
+ isConcurrencySafe?(args?: unknown): boolean
  execute(args: unknown, exec?: unknown): Promise<unknown>
  timeoutMs?: number
 }
@@ -81,9 +82,11 @@ function render(_args: unknown, value: unknown): ContentBlock[] {
  if (result.runId) return [{ type: 'text', text: 'Review ' + result.runId + ' · ' + (result.status ?? (result.ok ? 'automated checks passed' : 'blocked')) + '\n' + JSON.stringify(result, null, 2) }]
  return [{ type: 'text', text: JSON.stringify(value, null, 2) }]
 }
+const READ_ONLY_TOOLS = new Set(['review_diff', 'review_status', 'review_learn', 'review_issue', 'review_health'])
 export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {}): ReviewToolDefinition[] {
  function tool(name: string, description: string, spec: Record<string, any>, execute: (args: Record<string, any>, exec: ToolExecutionContext, root: string, ledger: Ledger) => Promise<unknown>, timeoutMs = 120000): ReviewToolDefinition {
-  return { name, description, parameters: parameters(spec), output: { schema: { type: 'object', additionalProperties: true }, render }, timeoutMs,
+  const concurrencySafe = READ_ONLY_TOOLS.has(name) ? { isConcurrencySafe: () => true } : {}
+  return { name, description, parameters: parameters(spec), output: { schema: { type: 'object', additionalProperties: true }, render }, ...concurrencySafe, timeoutMs,
    async execute(raw, context) {
     const exec = (context ?? {}) as ToolExecutionContext
     exec.signal?.throwIfAborted()

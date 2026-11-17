@@ -13,3 +13,12 @@ test('registered tools are disposed with the plugin, so reloading does not leak 
 test('invalid configuration is reported, never silently replaced with permissive defaults', () => {
  assert.throws(()=>apply({tools:{register(){throw new Error('must not register')}}},{roundCap:0}),/roundCap/)
 })
+test('read-only review tools declare isConcurrencySafe while mutating tools do not', () => {
+ const defs=new Map()
+ apply({tools:{register(tool){defs.set(tool.name,tool);return()=>{}}}})
+ assert.equal(defs.get('review_health').isConcurrencySafe(),true)
+ assert.equal(defs.get('review_diff').isConcurrencySafe(),true)
+ assert.equal(defs.get('review_status').isConcurrencySafe(),true)
+ assert.equal(defs.get('review_run').isConcurrencySafe,undefined)
+ assert.equal(defs.get('review_respond').isConcurrencySafe,undefined)
+})

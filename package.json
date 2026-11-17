@@ -1,6 +1,6 @@
 {
   "name": "@stardustlc/dsh-review",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "DSH 代码审阅：独立发现缺陷、证据复核、修复跟踪与门禁；支持三种审阅模式。欢迎提交 issues 和 PR。",
   "type": "module",
   "main": "lib/index.js",
@@ -15,7 +15,9 @@
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json",
-    "./client": "./lib/update-client.js"
+    "./client": "./lib/update-client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/plugin-icon.webp"
   },
   "files": [
     "lib",
@@ -24,7 +26,8 @@
     "README.en.md",
     "docs",
     "CHANGELOG.md",
-    "assets/plugin-icon.webp"
+    "assets/plugin-icon.webp",
+    "locale"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-updates.mjs",
@@ -34,6 +37,7 @@
     "prepublishOnly": "npm run build"
   },
   "dsh": {
+    "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
     },

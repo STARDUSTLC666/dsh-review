@@ -29,7 +29,14 @@ export function apply(ctx: ReviewPluginContext, config?: Partial<ReviewConfig> |
   const tools = agent.ctx?.get?.('tools') ?? ctx.tools
   let toolName = 'bash', command = input.command
   if (process.platform === 'win32' && !tools.get?.('bash', agent) && tools.get?.('pwsh', agent)) {
-   const bash = [path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Git', 'bin', 'bash.exe')].find(file => existsSync(file))
+   const bashCandidates = [
+    process.env.GIT_BASH,
+    path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+    process.env.ProgramW6432 ? path.join(process.env.ProgramW6432, 'Git', 'bin', 'bash.exe') : undefined,
+    process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'Git', 'bin', 'bash.exe') : undefined,
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'bin', 'bash.exe') : undefined,
+   ].filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0)
+   const bash = bashCandidates.find(file => existsSync(file))
    if (!bash) throw new Error('This Windows preset exposes pwsh only. Install Git Bash or enable the controlled Bash tool; no direct process fallback is allowed.')
    // The official Windows preset exposes pwsh. It remains the policy/cancellation
    // boundary; use Git Bash underneath, preserving the original visible command.

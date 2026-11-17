@@ -25,12 +25,16 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
   if (baseRef.startsWith('-') || /[\s\x00-\x1f]/.test(baseRef)) throw new Error('Invalid base ref')
   const kind = args.staged === true ? 'staged' : baseRef !== 'HEAD' ? 'commit' : 'worktree'
   if (args.staged === true && baseRef !== 'HEAD') throw new Error('staged and base are mutually exclusive')
-  const requestedBase = (await query(['rev-parse', '--verify', '--end-of-options', baseRef + '^{commit}'])).trim()
+  const requestedBase = baseRef === 'HEAD' ? head : (await query(['rev-parse', '--verify', '--end-of-options', baseRef + '^{commit}'])).trim()
   const base = kind === 'commit' ? (await query(['merge-base', requestedBase, head])).trim() : head
   const selector = kind === 'staged' ? ['--cached', head] : kind === 'commit' ? [base, head] : [head]
   const common = ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', '--output-indicator-new=+', '--output-indicator-old=-', '--output-indicator-context= ']
-  const names = await query([...common, '--name-status', '-z', ...selector, '--'])
-  const patch = await query([...common, '--unified=3', ...selector, '--'])
+  const includeUntracked = kind === 'worktree' && args.includeUntracked !== false
+  const [names, patch, extraUntracked] = await Promise.all([
+    query([...common, '--name-status', '-z', ...selector, '--']),
+    query([...common, '--unified=3', ...selector, '--']),
+    includeUntracked ? query(['ls-files', '--others', '--exclude-standard', '-z']) : Promise.resolve(''),
+  ])
   const parsed = parseDiff(patch)
   if (!parsed.complete) throw new Error('Review incomplete: unsupported Git diff header')
   const fields = names.split('\0'); if (fields.at(-1) === '') fields.pop()
@@ -42,9 +46,8 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
     if (!next) throw new Error('Review incomplete: truncated file inventory')
     entries.push({ path: next, oldPath: code[0] === 'A' ? null : first, code })
   }
-  const includeUntracked = kind === 'worktree' && args.includeUntracked !== false
   if (includeUntracked) {
-    const extra = (await query(['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean)
+    const extra = extraUntracked.split('\0').filter(Boolean)
     for (const file of extra) if (!entries.some(e => e.path === file)) entries.push({ path: file, oldPath: null, code: 'A' })
   }
   let rules: ReviewRules
@@ -81,8 +84,14 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
       addedLines: diff ? diff.hunks.flatMap(h => h.lines.filter(l => l.type === 'add').map(l => l.newNo!)) : (after ?? '').split('\n').map((_, n) => n + 1),
       removedLines: diff?.hunks.flatMap(h => h.lines.filter(l => l.type === 'del').map(l => l.oldNo!)) ?? [] })
   }
-  if ((await query(['rev-parse', 'HEAD'])).trim() !== head || await query([...common, '--name-status', '-z', ...selector, '--']) !== names || await query([...common, '--unified=3', ...selector, '--']) !== patch) throw new Error('Review target changed while reading; retry')
-  const branchResult = await git(root, ['symbolic-ref', '--short', 'HEAD'])
+  const [afterHead, afterNames, afterPatch, branchResult, nowUntrackedRaw] = await Promise.all([
+    query(['rev-parse', 'HEAD']),
+    query([...common, '--name-status', '-z', ...selector, '--']),
+    query([...common, '--unified=3', ...selector, '--']),
+    git(root, ['symbolic-ref', '--short', 'HEAD'], 30000, maxBytes, signal),
+    includeUntracked ? query(['ls-files', '--others', '--exclude-standard', '-z']) : Promise.resolve(''),
+  ])
+  if (afterHead.trim() !== head || afterNames !== names || afterPatch !== patch) throw new Error('Review target changed while reading; retry')
   const series = hash(JSON.stringify([root, branchResult.ok ? branchResult.stdout.trim() : head, kind, base, kind === 'commit' ? null : head]))
   const instructions = ['AGENTS.md', 'CLAUDE.md'].map(file => {
     try {
@@ -93,7 +102,7 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
   }).filter(Boolean).join('\n')
   const allPaths = entries.filter(entry => !inState(entry.path)).map(entry => entry.path)
   if (includeUntracked) {
-    const now = (await query(['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(file => file && !inState(file) && !isSkipped(file, rules.skip))
+    const now = nowUntrackedRaw.split('\0').filter(file => file && !inState(file) && !isSkipped(file, rules.skip))
     const then = entries.filter(e => e.oldPath === null && !parsed.files.some(f => f.path === e.path) && !inState(e.path) && !isSkipped(e.path, rules.skip)).map(e => e.path)
     if (JSON.stringify(now.sort()) !== JSON.stringify(then.sort())) throw new Error('Untracked file inventory changed while reading; retry')
     for (const file of files.filter(f => f.oldPath === null && !parsed.files.some(d => d.path === f.path))) if (readFileSync(path.resolve(root, file.path), 'utf8') !== file.after) throw new Error('Untracked source changed while reading; retry')

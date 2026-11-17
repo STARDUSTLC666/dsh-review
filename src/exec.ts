@@ -5,8 +5,10 @@
  */
 
 import { spawn } from 'node:child_process'
+import { lstatSync } from 'node:fs'
+import path from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
-import { prepareRawDiff } from './git-safety.js'
+import { isolateRawDiff, prepareRawDiff } from './git-safety.js'
 
 export interface RunResult {
   ok: boolean
@@ -82,17 +84,50 @@ export function run(command: string, args: string[], options: RunOptions): Promi
   })
 }
 
+const repoMetaCache = new Map<string, { stamp: string; format: string; attributesFile: string }>()
+
+function gitMarkerStamp(cwd: string, env: NodeJS.ProcessEnv): string | null {
+  if (env.GIT_DIR || env.GIT_COMMON_DIR || env.GIT_WORK_TREE) return null
+  try {
+    const stat = lstatSync(path.join(cwd, '.git'))
+    return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}`
+  } catch {
+    return null
+  }
+}
+
+async function resolveDiffIsolation(cwd: string, config: string[], timeoutMs: number, signal: AbortSignal | undefined, env: NodeJS.ProcessEnv) {
+  const key = path.resolve(cwd)
+  const stamp = gitMarkerStamp(key, env)
+  const cached = stamp !== null ? repoMetaCache.get(key) : undefined
+  if (cached && cached.stamp === stamp) {
+    return isolateRawDiff(cached.format, cached.attributesFile)
+  }
+  const probe = await run('git', [...config, 'rev-parse', '--show-object-format', '--path-format=absolute', '--git-path', 'info/attributes'], {
+    cwd, timeoutMs: Math.min(timeoutMs, 10000), maxOutputBytes: 65536, signal, env,
+  })
+  if (!probe.ok) throw new Error('Git safety metadata unavailable; review incomplete')
+  const lines = probe.stdout.replace(/\r\n/g, '\n').split('\n')
+  const format = (lines[0] ?? '').trim()
+  const attributesFile = lines.slice(1).join('\n').trim()
+  const isolated = isolateRawDiff(format, attributesFile)
+  if (stamp !== null) {
+    if (repoMetaCache.size >= 128 && !repoMetaCache.has(key)) {
+      const oldest = repoMetaCache.keys().next().value
+      if (oldest !== undefined) repoMetaCache.delete(oldest)
+    }
+    repoMetaCache.set(key, { stamp, format, attributesFile })
+  }
+  return isolated
+}
+
 export async function git(cwd: string, args: string[], timeoutMs = 30000, maxOutputBytes = DEFAULT_OUTPUT_LIMIT, signal?: AbortSignal): Promise<RunResult> {
   const config = ['-c', 'core.quotepath=false', '-c', 'color.ui=false', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', '-c', 'core.attributesFile=' + (process.platform === 'win32' ? 'NUL' : '/dev/null')]
   const env = { ...process.env, GIT_ATTR_NOSYSTEM: '1' }
   if (args[0] !== 'diff') return run('git', [...config, ...args], { cwd, timeoutMs, maxOutputBytes, signal, env })
   const started = Date.now()
   try {
-    const isolation = await prepareRawDiff(async query => {
-      const result = await run('git', [...config, ...query], { cwd, timeoutMs: Math.min(timeoutMs, 10000), maxOutputBytes: 65536, signal, env })
-      if (!result.ok) throw new Error('Git safety metadata unavailable; review incomplete')
-      return result.stdout
-    })
+    const isolation = await resolveDiffIsolation(cwd, config, timeoutMs, signal, env)
     const result = await run('git', [...config, isolation.option, ...args], { cwd, timeoutMs, maxOutputBytes, signal, env })
     isolation.verify()
     return result

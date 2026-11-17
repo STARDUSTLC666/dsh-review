@@ -17,14 +17,19 @@ function assertInfoAttributes(file: string): void {
   }
 }
 
-export async function prepareRawDiff(read: (args: string[]) => Promise<string>): Promise<{ option: string; verify(): void }> {
-  const format = (await read(['rev-parse', '--show-object-format'])).trim()
+export function isolateRawDiff(format: string, file: string): { option: string; verify(): void } {
   if (format !== 'sha1' && format !== 'sha256') throw new Error('无法确认 Git 对象格式，审查未完成 / Unknown Git object format; review incomplete')
-  const file = (await read(['rev-parse', '--path-format=absolute', '--git-path', 'info/attributes'])).trim()
   if (!isAbsolute(file) || file.length > 4096 || /[\x00-\x1f]/.test(file)) throw new Error('无法确认 Git 属性文件位置，审查未完成 / Invalid Git attribute path; review incomplete')
   assertInfoAttributes(file)
   return {
     option: '--attr-source=' + createHash(format).update('tree 0\u0000').digest('hex'),
     verify: () => assertInfoAttributes(file),
   }
+}
+
+export async function prepareRawDiff(read: (args: string[]) => Promise<string>): Promise<{ option: string; verify(): void }> {
+  const format = (await read(['rev-parse', '--show-object-format'])).trim()
+  if (format !== 'sha1' && format !== 'sha256') throw new Error('无法确认 Git 对象格式，审查未完成 / Unknown Git object format; review incomplete')
+  const file = (await read(['rev-parse', '--path-format=absolute', '--git-path', 'info/attributes'])).trim()
+  return isolateRawDiff(format, file)
 }
