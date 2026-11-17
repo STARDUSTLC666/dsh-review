@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.5 (2026-11-18)
+
+- 同步 `@stardustlc/dsh-updates` 0.2.1：恢复 Suite 整包统一更新（移除独立拆包迁移），保留整包与独立插件的原地热更新与失败自动回滚。
+- Sync `@stardustlc/dsh-updates` 0.2.1: restore unified Suite bundle updates (removing standalone conversion) while retaining in-place hot reload and automatic rollback.
+
 ## 0.5.4 (2026-11-18)
 
 - 深度适配 DSH 0.2.2：补齐 manifestVersion 1 与双语元数据；合并缓存仓库 Git 元数据查询并并行化只读检查以显著提升 Windows 响应速度，增强账本原子重命名重试与 Git Bash 路径探测。
