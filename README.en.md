@@ -35,15 +35,18 @@ For the web profile, replace `desktop` with `web`. Restart that DSH profile afte
 
 ## Start using it
 
-1. Install @stardustlc/dsh-review in the profile you use, then start a new session in the target Git repository.
-2. Choose the working tree, staged changes or a Git base, and the appropriate review depth.
-3. Ask the assistant to run review_run. Keep its runId and inspect unfinished work with review_status.
-4. Check each trigger, code location and independent verification; fix the issue or record a reasoned disposition.
-5. Review changed code again and check review_gate. The AI gate does not replace CI or human approval.
+No internal tool names to memorize — use it like a teammate before opening or merging a PR:
 
-Example request：
+1. **Pick what to review**: Open a session in your Git repo and state the scope (working tree, staged diff, or branch diff against `main`) and depth (quick check, standard PR review, or deep pre-release audit).
+2. **Inspect evidence-backed findings**: Fresh-context reviewers and independent verifiers filter out stylistic noise and return concrete file/line locations, failure triggers, and verification evidence.
+3. **Fix or record rationale**: Ask the assistant to fix confirmed bugs, or state why a finding is intentional so it is recorded cleanly.
+4. **Re-verify the gate**: After code edits, ask to recheck the review gate before pushing to CI and human review.
 
-> Review the current Git diff with triggers and source evidence. Do not modify files yet.
+Ready-to-copy prompts:
+
+- **Pre-PR self-check**: `Review my current branch diff against main with concrete triggers and code evidence — don't edit files yet.`
+- **High-risk deep audit**: `Run a deep review on the staged auth and concurrency changes, focusing on race conditions, permissions, and rollback safety.`
+- **Fix & recheck gate**: `Fix the confirmed high-severity findings, then re-run the review gate to confirm nothing remains open.`
 
 ## Before you start
 

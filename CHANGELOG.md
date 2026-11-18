@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.7 (2026-11-18)
+
+- 重写中英文代码审阅上手流程：去除让用户手动记忆内部工具名与 `runId` 的说明，改为「指定改动范围与深度 → 核对带行号与触发条件的真问题 → 修复或说明理由 → 复查门禁」四步闭环与常用话术。
+- Rewrite bilingual code-review onboarding into a natural 4-step PR loop without internal tool-name/runId boilerplate, complete with copy-ready review prompts.
+
 ## 0.5.6 (2026-11-18)
 
 - 更新区底部新增克制、无打扰的 GitHub 点赞与问题反馈快捷链接，并完善中英文检索关键词。
