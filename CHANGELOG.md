@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.8 (2026-11-18)
+
+- 同步 `@stardustlc/dsh-updates` 0.2.3：侧边栏工作台平时默认隐藏底部更新栏（零高度占用），仅在检测到兼容新版本或执行更新时浮现单行精简提示条；完整更新设置与检查入口统一保留在 DSH「插件」详情页底部。
+- Sync `@stardustlc/dsh-updates` 0.2.3: keep the sidebar workbench update footer hidden by default when up-to-date, surfacing a single-line compact strip only for actionable updates or active jobs while retaining full controls in native Plugin Details.
+
 ## 0.5.7 (2026-11-18)
 
 - 重写中英文代码审阅上手流程：去除让用户手动记忆内部工具名与 `runId` 的说明，改为「指定改动范围与深度 → 核对带行号与触发条件的真问题 → 修复或说明理由 → 复查门禁」四步闭环与常用话术。
