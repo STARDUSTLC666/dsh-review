@@ -147,7 +147,7 @@ export function buildReviewTools(config: ReviewConfig, options: BuildOptions = {
     return runView(await executeRun(ledger, run.id, config, externalDispatcher(), signal))
    }),
   tool('review_check', 'Run evidence through the host controlled Bash tool with the caller permissions and cancellation. Records a receipt tied to this exact target; no direct process escape.',
-   { ...runSpec, command: { type: 'string', required: true }, cwd: { type: 'string', description: 'Workspace-relative directory.' }, timeoutMs: { type: 'integer', minimum: 1000, maximum: 600000 } },
+   { ...runSpec, command: { type: 'string', required: true }, cwd: { type: 'string', description: 'Workspace-relative directory.' }, timeoutMs: { type: 'integer', description: 'Timeout in milliseconds: an integer from 1000 to 600000. Omit to use the configured command timeout.' } },
    async (args, exec, root, ledger) => {
     const run = getRun(ledger, args, root)
     await assertCurrent(run, ledger, config, exec.signal)
