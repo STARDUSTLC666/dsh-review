@@ -46,7 +46,12 @@ export function gitPath(value: string): string {
   if (!value.endsWith('"')) throw new Error('Incomplete quoted Git path')
   const bytes: number[] = []
   for (let i = 1; i < value.length - 1; i++) {
-    if (value[i] !== '\\') { bytes.push(...Buffer.from(value[i])); continue }
+    if (value[i] !== '\\') {
+      const point = value.codePointAt(i)!
+      bytes.push(...Buffer.from(String.fromCodePoint(point)))
+      if (point > 0xffff) i++
+      continue
+    }
     const octal = /^[0-7]{1,3}/.exec(value.slice(i + 1))
     if (octal) { bytes.push(parseInt(octal[0], 8)); i += octal[0].length; continue }
     const ch = value[++i]
@@ -84,8 +89,8 @@ export function parseDiff(raw: string): ParsedDiff {
     if (current === null) continue
     if (line.startsWith('new file mode')) { current.status = 'added'; continue }
     if (line.startsWith('deleted file mode')) { current.status = 'deleted'; continue }
-    if (line.startsWith('rename from')) { current.status = 'renamed'; current.oldPath = line.slice(12).trim(); continue }
-    if (line.startsWith('copy from')) { current.status = 'copied'; current.oldPath = line.slice(10).trim(); continue }
+    if (line.startsWith('rename from ')) { current.status = 'renamed'; current.oldPath = gitPath(line.slice(12)); continue }
+    if (line.startsWith('copy from ')) { current.status = 'copied'; current.oldPath = gitPath(line.slice(10)); continue }
     if (line.startsWith('Binary files ') || line === 'GIT binary patch') { current.binary = true; continue }
     if (hunk === null && line.startsWith('--- ')) {
       const target = line.slice(4).trim()

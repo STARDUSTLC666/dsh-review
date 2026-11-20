@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDiff, contextAround } from '../lib/diff.js'
+import { parseDiff, contextAround, gitPath } from '../lib/diff.js'
 
 const sample = [
   'diff --git a/src/a.js b/src/a.js',
@@ -57,4 +57,11 @@ test('二进制与重命名被识别', () => {
   assert.equal(parsed.files[0].binary, true)
   const renamed = ['diff --git a/old.js b/new.js', 'rename from old.js', 'rename to new.js'].join('\n')
   assert.equal(parseDiff(renamed).files[0].status, 'renamed')
+})
+
+test('quoted Git paths preserve supplementary Unicode next to escaped characters', () => {
+  assert.equal(gitPath('"src/📘\\tcode.js"'), 'src/📘\tcode.js')
+  const parsed = parseDiff(['diff --git "a/src/📘\\told.js" "b/src/📘\\tnew.js"', 'similarity index 100%', 'rename from "src/📘\\told.js"', 'rename to "src/📘\\tnew.js"'].join('\n'))
+  assert.equal(parsed.files[0].path, 'src/📘\tnew.js')
+  assert.equal(parsed.files[0].oldPath, 'src/📘\told.js')
 })

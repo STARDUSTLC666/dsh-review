@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync, realpathSync, lstatSync } from 'node:fs'
+import { readFileSync, realpathSync, lstatSync, openSync, fstatSync, readSync, closeSync } from 'node:fs'
 import path from 'node:path'
 import { git } from './exec.js'
 import { parseDiff, type FileDiff } from './diff.js'
@@ -13,6 +13,26 @@ export interface ReviewTarget {
   files: TargetFile[]; allPaths: string[]; instructions: string; skipped: string[]; rules: ReviewRules; diff: FileDiff[];
 }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
+function snapshotText(file: string, limit: number): string {
+  if (limit < 0) throw new Error('Review incomplete: snapshot exceeds maxDiffBytes')
+  const descriptor = openSync(file, 'r')
+  try {
+    const info = fstatSync(descriptor)
+    if (!info.isFile()) throw new Error('Review incomplete: source is not a regular file')
+    if (info.size > limit) throw new Error('Review incomplete: snapshot exceeds maxDiffBytes')
+    const chunks: Buffer[] = []
+    let bytes = 0
+    for (;;) {
+      // Read one extra byte to detect growth after stat without buffering it all.
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, limit - bytes + 1))
+      const count = readSync(descriptor, chunk)
+      if (!count) return Buffer.concat(chunks, bytes).toString('utf8')
+      bytes += count
+      if (bytes > limit) throw new Error('Review incomplete: snapshot exceeds maxDiffBytes')
+      chunks.push(chunk.subarray(0, count))
+    }
+  } finally { closeSync(descriptor) }
+}
 export async function captureTarget(root: string, args: { base?: unknown; staged?: unknown; includeUntracked?: unknown }, maxBytes: number, stateDir: string, signal?: AbortSignal): Promise<ReviewTarget> {
   root = realpathSync(root)
   const query = async (argv: string[]) => {
@@ -75,7 +95,7 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
       if (kind === 'worktree') {
         const file = path.resolve(root, entry.path), relative = path.relative(root, realpathSync(file))
         if (relative.startsWith('..') || path.isAbsolute(relative) || lstatSync(file).isSymbolicLink()) throw new Error('Review incomplete: symlink or out-of-root path')
-        after = readFileSync(file, 'utf8')
+        after = snapshotText(file, maxBytes - total - Buffer.byteLength(before ?? ''))
       } else after = await blob((kind === 'staged' ? '' : head) + ':' + entry.path)
     }
     total += Buffer.byteLength(before ?? '') + Buffer.byteLength(after ?? '')
@@ -105,7 +125,7 @@ export async function captureTarget(root: string, args: { base?: unknown; staged
     const now = nowUntrackedRaw.split('\0').filter(file => file && !inState(file) && !isSkipped(file, rules.skip))
     const then = entries.filter(e => e.oldPath === null && !parsed.files.some(f => f.path === e.path) && !inState(e.path) && !isSkipped(e.path, rules.skip)).map(e => e.path)
     if (JSON.stringify(now.sort()) !== JSON.stringify(then.sort())) throw new Error('Untracked file inventory changed while reading; retry')
-    for (const file of files.filter(f => f.oldPath === null && !parsed.files.some(d => d.path === f.path))) if (readFileSync(path.resolve(root, file.path), 'utf8') !== file.after) throw new Error('Untracked source changed while reading; retry')
+    for (const file of files.filter(f => f.oldPath === null && !parsed.files.some(d => d.path === f.path))) if (snapshotText(path.resolve(root, file.path), maxBytes) !== file.after) throw new Error('Untracked source changed while reading; retry')
   }
   return { id: hash(JSON.stringify([root, kind, head, base, patch, files, rules, instructions, allPaths])), series, root, head, base, baseRef, kind, includeUntracked, patch, files, allPaths, instructions, skipped, rules, diff: parsed.files.filter(f => files.some(item => item.path === f.path)) }
 }
