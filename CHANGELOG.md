@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.15 (2026-11-23)
+
+- 补齐 `README.md` 与中英文 `docs/REFERENCE.{zh,en}.md` 中缺失的第 11 个工具 `review_health` 并统一工具计数（11 个），同时修正语言切换链接与兼容版本自动更新策略说明。
+- Document the 11th tool (`review_health`) and update tool counts (10 -> 11) in `README.md` and `docs/REFERENCE.{zh,en}.md`, and fix peer language links and compatible minor+patch auto-update wording.
+
 ## 0.5.14 (2026-11-20)
 
 - 升级共享更新组件至 0.2.10，移除跨插件右下角浮动提醒，保留工作台及插件详情页更新控制。

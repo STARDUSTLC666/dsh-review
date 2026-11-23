@@ -52,7 +52,7 @@ dsh plugin --profile desktop add @stardustlc/dsh-review
 
 - AI 审阅与门禁仍需结合真实测试、CI 与人工判断。
 - 证据执行沿用当前会话的原生或 PTC 执行器，保留宿主权限与取消控制；拒绝或不完整回执绝不计为通过。
-- 详细配置、十个工具与排错见 [完整说明](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)。
+- 详细配置、十一个工具与排错见 [完整说明](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.zh.md)。
 
 ## 插件更新
 
@@ -69,7 +69,7 @@ dsh plugin --profile desktop add @stardustlc/dsh-review
 
 <a id="使用"></a>
 <a id="审阅如何完成"></a>
-<a id="十个工具"></a>
+<a id="十一个工具"></a>
 <a id="检查权限与证据"></a>
 <a id="接入仓库流程"></a>
 <a id="限制"></a>

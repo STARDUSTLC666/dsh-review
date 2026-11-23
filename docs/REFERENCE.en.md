@@ -2,7 +2,7 @@
 
 # dsh-review
 
-[中文](../README.md)
+[中文](./REFERENCE.zh.md)
 
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
@@ -38,7 +38,7 @@ Git attribute conversions are isolated so repository clean filters cannot run or
 
 Posted findings require a fix or reasoned disposition. Fixes clear only after independent re-verification. Reviews default to three completed rounds; round three limits new findings to the actual incremental edits while re-checking unresolved findings. New files remain eligible. Binary changes require separate review.
 
-The ten tools are `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue` and `review_eval`. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
+The eleven tools are `review_diff`, `review_run`, `review_report`, `review_check`, `review_respond`, `review_status`, `review_gate`, `review_learn`, `review_issue`, `review_eval` and `review_health`. External task submissions cannot prove independent execution and never pass the automatic gate. No tool publishes GitHub feedback or grants a human approval.
 
 Evidence commands go through the live caller's controlled host terminal, including permission and cancellation handling. Read-only sessions refuse command execution. On the official Windows preset, controlled `pwsh` bridges to Git Bash when Bash is not exposed; Git Bash and PowerShell 7.3+ are required. There is no direct process fallback.
 
@@ -62,6 +62,6 @@ Issues and PRs are welcome. Include reproducible inputs, versions and expected/a
 
 ## Plugin updates
 
-Requires DSH 0.2.2-rc.3 or newer. Update controls sit at the bottom of the existing workbench, or native plugin details for plugins without a workbench. Checks, release notes and preferences expand in place, with no separate update page or settings menu. Automatic checks are on by default; **automatic installation is off by default**. Only explicit opt-in permits compatible stable patches while idle with no unsaved changes. Preferences are independent, with per-plugin disable, deferral and ignore controls. No forced DSH restart or upgrade, and local-source installations stay unchanged. Suite components explain and operate on the whole Suite in the same footer.
+Requires DSH 0.2.2-rc.3 or newer. Update controls sit at the bottom of the existing workbench, or native plugin details for plugins without a workbench. Checks, release notes and preferences expand in place, with no separate update page or settings menu. Automatic checks are on by default; **automatic installation is off by default**. Only explicit opt-in permits compatible stable updates (compatible minor and patch releases by default, or patch-only) while idle with no unsaved changes. Preferences are independent, with per-plugin disable, deferral and ignore controls. No forced DSH restart or upgrade, and local-source installations stay unchanged. Suite components explain and operate on the whole Suite in the same footer.
 
 Older releases need one manual update in native plugin management to acquire these controls. Publishing to npm does not replace an existing user installation.

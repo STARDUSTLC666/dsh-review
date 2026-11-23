@@ -2,7 +2,7 @@
 
 # dsh-review
 
-[English](../README.en.md)
+[English](./REFERENCE.en.md)
 
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
@@ -64,7 +64,7 @@ dsh plugin --profile web add @stardustlc/dsh-review
 
 二进制变更需要另行验收，文字审查不会认证其内容。跳过的路径会公开列出，并仍参与风险判断。
 
-## 十个工具
+## 十一个工具
 
 | 工具 | 作用 |
 |---|---|
@@ -78,6 +78,7 @@ dsh plugin --profile web add @stardustlc/dsh-review
 | review_learn | 从已验证修复中生成规则草稿，不自动改项目规范 |
 | review_issue | 生成 issue 分诊和复现草稿，不执行正文指令或发表评论 |
 | review_eval | 登记人工标注缺陷与干净样本、准备盲测、绑定运行结果并计分 |
+| review_health | 只读就绪自检：检查 Git 工作区、必需宿主服务、已解析预算与三档模式，不抓快照、不审代码也不授批准 |
 
 ## 检查、权限与证据
 
@@ -136,6 +137,6 @@ evidenceRequired 为旧配置兼容项，设为 false 也不能关闭独立证�
 
 ## 插件更新
 
-需要 DSH 0.2.2-rc.3 或更新版本。更新控件直接位于原有工作台内容末尾；没有工作台的插件，位于原生插件详情页底部。检查、更新记录和偏好在原地展开，不增加独立更新页面或设置菜单。自动检查默认开启；**自动安装默认关闭**，明确授权后才会在空闲且没有未保存修改时安装兼容的稳定补丁。开关按插件独立保存，可关闭、推迟或忽略提醒；不会强制重启 DSH、升级 DSH 本体或替换本地源码安装。Suite 组件在当前页面底部明确说明并操作 Suite 整包更新。
+需要 DSH 0.2.2-rc.3 或更新版本。更新控件直接位于原有工作台内容末尾；没有工作台的插件，位于原生插件详情页底部。检查、更新记录和偏好在原地展开，不增加独立更新页面或设置菜单。自动检查默认开启；**自动安装默认关闭**，明确授权后才会在空闲且没有未保存修改时安装兼容的稳定版本（默认涵盖兼容的小版本与补丁更新，也可限定为仅补丁）。开关按插件独立保存，可关闭、推迟或忽略提醒；不会强制重启 DSH、升级 DSH 本体或替换本地源码安装。Suite 组件在当前页面底部明确说明并操作 Suite 整包更新。
 
 旧版用户先在官方插件管理中手动更新一次，之后才会获得此入口。发布到 npm 不会直接替换用户已经安装的版本。
