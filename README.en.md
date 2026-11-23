@@ -2,13 +2,13 @@
 
 # Review
 
-**Review code with evidence and fixes you can recheck.**
+> **Evidence-backed code review with verifiable fixes and repeatable quality gates.**
 
-Evidence-backed code review plugin for DeepSeek Harness (`>=0.2.2-rc.3`): combines fresh-context defect discovery, independent verifier voting, risk classification, and incremental round tracking across quick, standard, and deep review gates.
+Code review plugin for DeepSeek Harness (`>=0.2.2-rc.3`) combining fresh-context defect discovery, independent verifier voting, risk tiers, and incremental convergence across quick, standard, and deep gates.
 
 [![npm](https://img.shields.io/npm/v/@stardustlc/dsh-review)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review) [![total downloads](https://raw.githubusercontent.com/STARDUSTLC666/dsh-suite/npm-downloads/assets/dsh-review-total-downloads.svg)](https://www.npmjs.com/package/@stardustlc/dsh-review)
 
-**[Install](#install) · [Workflow](#start-using-it) · [Full guide](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md)**
+**[Features](#features) · [Install](#install) · [Workflow](#start-using-it) · [Full guide](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md)**
 
 <picture>
   <source media="(prefers-color-scheme: dark) and (max-width: 640px)" srcset="https://raw.githubusercontent.com/STARDUSTLC666/dsh-review/main/docs/assets/intro/workflow-en-mobile-dark.svg">
@@ -19,30 +19,30 @@ Evidence-backed code review plugin for DeepSeek Harness (`>=0.2.2-rc.3`): combin
 
 ## Features
 
-- Choose scope and depth for a working tree, staged diff or Git base.
-- Inspect triggers, source locations and independent verification.
-- Track open items and rerun the gate after code changes.
+| Pillar | Capabilities |
+| :--- | :--- |
+| **Flexible Scope & Depth** | Review working tree, staged diff, or Git base across **quick / standard / deep** review gates |
+| **Fresh-Context Verification** | Independent finders and verifier voting filter stylistic noise and surface file/line triggers with concrete evidence |
+| **Incremental Gate Tracking** | Track open fixes or recorded waivers and rerun the gate after edits, preserving host permissions and cancellation controls |
 
 ## Install
 
-Open **Plugins** in the DSH desktop app and install `@stardustlc/dsh-review`. If the CLI is available:
+Open **Plugins** in the DSH desktop app and install `@stardustlc/dsh-review`, or use the CLI:
 
 ```bash
 dsh plugin --profile desktop add @stardustlc/dsh-review
 ```
 
-For the web profile, replace `desktop` with `web`. Restart that DSH profile after installation. The package’s DSH requirement is `>=0.2.2-rc.3`.
+For the web profile, replace `desktop` with `web` and restart DSH. Requires DSH `>=0.2.2-rc.3` (standalone companion plugin, not bundled in `dsh-suite`).
 
 ## Start using it
 
-No internal tool names to memorize — use it like a teammate before opening or merging a PR:
+1. **Pick scope & depth**: State whether to review working tree, staged changes, or branch diff against `main` (quick / standard / deep).
+2. **Inspect verified findings**: Review severity-sorted issues backed by file/line locations, failure triggers, and proof.
+3. **Fix or waive cleanly**: Patch confirmed bugs in chat, or record rationale for intentional behavior.
+4. **Re-verify the gate**: Rerun the review gate after code edits before running CI and opening a PR.
 
-1. **Pick what to review**: Open a session in your Git repo and state the scope (working tree, staged diff, or branch diff against `main`) and depth (quick check, standard PR review, or deep pre-release audit).
-2. **Inspect evidence-backed findings**: Fresh-context reviewers and independent verifiers filter out stylistic noise and return concrete file/line locations, failure triggers, and verification evidence.
-3. **Fix or record rationale**: Ask the assistant to fix confirmed bugs, or state why a finding is intentional so it is recorded cleanly.
-4. **Re-verify the gate**: After code edits, ask to recheck the review gate before pushing to CI and human review.
-
-Ready-to-copy prompts:
+### Ready-to-copy prompts
 
 - **Pre-PR self-check**: `Review my current branch diff against main with concrete triggers and code evidence — don't edit files yet.`
 - **High-risk deep audit**: `Run a deep review on the staged auth and concurrency changes, focusing on race conditions, permissions, and rollback safety.`
@@ -50,26 +50,19 @@ Ready-to-copy prompts:
 
 ## Before you start
 
-AI reviews and gates still need real tests, CI and human judgment.
-
-Configuration, detailed tools and troubleshooting: [full reference](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md).
+- AI reviews and gates complement — rather than replace — real tests, CI, and human review.
+- Evidence checks follow the active native or PTC executor and honor host permission/cancellation controls; refused or incomplete runs never pass.
+- Full configuration, tools, and troubleshooting: [full reference](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md).
 
 ## Plugin updates
 
-Check updates at the bottom of the workbench or native plugin details. Automatic checks are on by default; **automatic installation is off**. You choose whether to install and when to restart. Suite-managed components update with their bundle. [Update behavior](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md).
+Check updates at the bottom of native plugin details. Automatic checks are on by default; **automatic installation is off**.
 
-## Documentation
+## Documentation & feedback
 
-- [Full usage, configuration and limits](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md)
-- [Release notes](https://github.com/STARDUSTLC666/dsh-review/blob/main/CHANGELOG.md)
-- [Validation scope and history](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/VALIDATION.md)
-
-## Feedback and contributions
-
-If the plugin helps, a Star makes it easier for others to discover. Report problems or suggest improvements in [Issues](https://github.com/STARDUSTLC666/dsh-review/issues); code and documentation [PRs](https://github.com/STARDUSTLC666/dsh-review/pulls) are welcome. Include versions and reproduction steps, and remove credentials from reports.
+- [Full usage, configuration and limits](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/REFERENCE.en.md) · [Release notes](https://github.com/STARDUSTLC666/dsh-review/blob/main/CHANGELOG.md) · [Validation history](https://github.com/STARDUSTLC666/dsh-review/blob/main/docs/VALIDATION.md)
+- Stars, [Issues](https://github.com/STARDUSTLC666/dsh-review/issues), and [PRs](https://github.com/STARDUSTLC666/dsh-review/pulls) are welcome (strip credentials first).
 
 ## License
 
 [MIT](https://github.com/STARDUSTLC666/dsh-review/blob/main/LICENSE)
-
-Evidence checks follow the current native or PTC executor and retain host permission/cancellation controls. Refused or incomplete results never count as passing evidence.
