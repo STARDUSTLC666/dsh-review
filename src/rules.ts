@@ -5,8 +5,40 @@
  * @module dsh-review/rules
  */
 
-import { existsSync, readFileSync, realpathSync, lstatSync } from 'node:fs'
+import { constants, existsSync, realpathSync, lstatSync, openSync, fstatSync, readSync, closeSync, type Stats } from 'node:fs'
 import path from 'node:path'
+
+const MAX_GUIDANCE_BYTES = 32 * 1024
+
+function sameFile(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino
+}
+
+function readGuidance(file: string): string {
+  const expected = lstatSync(file)
+  if (!expected.isFile() || expected.isSymbolicLink()) throw new Error('Review guidance must be a regular file inside the workspace')
+  if (expected.size > MAX_GUIDANCE_BYTES) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
+  const flags = constants.O_RDONLY | (process.platform === 'win32' ? 0 : constants.O_NOFOLLOW ?? 0)
+  const descriptor = openSync(file, flags)
+  try {
+    const opened = fstatSync(descriptor), current = lstatSync(file)
+    if (!opened.isFile() || !sameFile(expected, opened) || !current.isFile() || current.isSymbolicLink() || !sameFile(opened, current)) {
+      throw new Error('Review guidance changed while reading; review incomplete')
+    }
+    if (opened.size > MAX_GUIDANCE_BYTES) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
+    const buffer = Buffer.allocUnsafe(MAX_GUIDANCE_BYTES + 1)
+    let total = 0
+    while (total < buffer.length) {
+      const bytesRead = readSync(descriptor, buffer, total, buffer.length - total, null)
+      if (bytesRead === 0) break
+      total += bytesRead
+    }
+    if (total > MAX_GUIDANCE_BYTES) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
+    return buffer.subarray(0, total).toString('utf8')
+  } finally {
+    closeSync(descriptor)
+  }
+}
 
 export interface ReviewRules {
   guidance: string
@@ -37,10 +69,10 @@ export function loadRules(root: string): ReviewRules {
   if (file === undefined) return parseRules('', null)
   const relative = path.relative(realpathSync(root), realpathSync(file))
   if (lstatSync(file).isSymbolicLink() || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Review guidance must be a regular file inside the workspace')
-  return parseRules(readFileSync(file, 'utf8'), path.relative(root, file).replace(/\\/g, '/'))
+  return parseRules(readGuidance(file), path.relative(root, file).replace(/\\/g, '/'))
 }
 export function parseRules(content: string, source: string | null): ReviewRules {
-  if (Buffer.byteLength(content) > 32768) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
+  if (Buffer.byteLength(content) > MAX_GUIDANCE_BYTES) throw new Error('REVIEW.md exceeds 32 KiB; keep review guidance concise')
   const rules: ReviewRules = { guidance: content, found: source !== null, path: source, skip: [], maxNits: null, severityFloor: null, mode: null, failureSignals: [], sensitivePaths: [] }
   const lines = content.split(/\r?\n/)
   let section = ''

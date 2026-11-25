@@ -52,6 +52,17 @@ test('actual call budget is enforced before workers are launched', async () => {
  assert.equal(run.status, 'incomplete'); assert.equal(d.seen.length, 0); assert.equal(run.calls, 0)
  assert.match(run.errors.join(' '), /budget/)
 })
+
+test('oversized REVIEW.md is rejected before reading and cannot replace prior ledger state', async () => {
+ const r = repo(), { call } = tools(r.root)
+ const run = await call('review_run')
+ assert.equal(run.status, 'pending')
+ const stateFile = path.join(r.root, '.dsh-review', 'state.json')
+ const before = readFileSync(stateFile, 'utf8')
+ r.write('REVIEW.md', 'x'.repeat(32 * 1024 + 1))
+ await assert.rejects(call('review_run'), /32 KiB/)
+ assert.equal(readFileSync(stateFile, 'utf8'), before)
+})
 test('independent majority can reject a false candidate; disagreement is not acceptance', async () => {
  const r = repo(), d = scripted({ find: t => t.id === 'find-correctness' ? [candidate] : [], vote: (task,_snapshot,_finding, vote) => ({ ...vote, decision: task.id.endsWith('-0') ? 'confirm' : task.id.endsWith('-1') ? 'reject' : 'unverifiable' }) }), { call } = tools(r.root, {}, { dispatcher: () => d })
  const run = await call('review_run')

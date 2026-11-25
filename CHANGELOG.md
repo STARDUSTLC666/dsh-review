@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.5.16 (2026-11-25)
+
+- 在 32 KiB 预算内读取 REVIEW.md，规则超限或被替换时保留已有审查记录。
+- Read REVIEW.md within a 32 KiB budget and preserve review state when guidance is oversized or replaced.
+
+
 ## 0.5.15 (2026-11-23)
 
 - 补齐 `README.md` 与中英文 `docs/REFERENCE.{zh,en}.md` 中缺失的第 11 个工具 `review_health` 并统一工具计数（11 个），同时修正语言切换链接与兼容版本自动更新策略说明。
