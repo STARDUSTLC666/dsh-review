@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.5.17 (2026-11-28)
+
+- 更新详情页现在会保留较新检查的结果，慢轮询返回时不再把版本或任务状态退回旧值。
+- Keep newer update-check results and job status when an older background request finishes later.
+
 ## 0.5.16 (2026-11-25)
 
 - 在 32 KiB 预算内读取 REVIEW.md，规则超限或被替换时保留已有审查记录。
